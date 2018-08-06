@@ -173,7 +173,7 @@ public class DHCPBot extends ListenerAdapter{
 							"dhcp.status         | gets your IP address\n" +
 							"dhcp.arp <query>    | submit ARP requests\n" +
 							"dhcp.table          | shows a list of IPs and their corresponding owners. Only works in small guilds\n" +
-							"dhcp.release [user] | assigns the given user a different IP (if one is available). Manage Server permission required for releasing users other than yourself\n" +
+							"dhcp.release [user] | assigns the given user a different IP (if one is available). Manage Server permission required for others.\n" +
 							"" +
 							"```").queue();
 			return;
@@ -201,7 +201,10 @@ public class DHCPBot extends ListenerAdapter{
 			}
 			try {
 				String[] querySplit = query.split(" ");
-				if(querySplit[0].equals("who")) {
+				if(!(querySplit.length >= 4)){
+					throw new IllegalArgumentException("Not enough arguments");
+				}
+				if(querySplit[0].equals("who") && querySplit.length == 5) {
 					if(querySplit[1].equals("has")) {
 						String tmpIp = querySplit[2].replace("?", "");
 						String toTell = "";
@@ -217,7 +220,7 @@ public class DHCPBot extends ListenerAdapter{
 									toTellUser = getUserByIP(toTell, ipMap).getAsMention();
 								}
 								catch(NullPointerException e) {
-									throw new IllegalArgumentException("Unregestered IP: " + toTell);
+									throw new IllegalArgumentException("Unregistered IP: " + toTell);
 								}
 								catch(IllegalArgumentException e) {
 									throw new IllegalArgumentException("an IP must come after `tell` keyword");
@@ -232,6 +235,27 @@ public class DHCPBot extends ListenerAdapter{
 						catch(NullPointerException e) {}
 						channel.sendMessage(toTellUser + " " + output).queue();
 					}
+				}
+				else if(querySplit[0].matches("^(10|192)") && querySplit.length == 4){
+					if(querySplit[1].equals("is") && querySplit[2].equals("at")){
+						if(querySplit[3].matches("^(10|192)")){
+							String curIp = querySplit[0];
+							String newIp = querySplit[3];
+							if(getUserByIP(newIp, ips) || getUserByIP(curIp, ips) != user){
+								channel.sendMessage("Arp poisoning attacks are not yet implemented").queue();
+								return;
+							}
+							if(getIPOFuser(user, ips).equals(newIp)){
+								channel.sendMessage(user + " is at " + newIp).queue();
+								return;
+							}
+							ips.put(user,newIp);
+							channel.sendMessage(user + " is at " + newIp).queue();
+							return;
+						} else{
+							throw new IllegalArgumentException("an IP must come after `at` keyword");
+						}
+					}	
 				}
 			}
 			catch(Exception e) {

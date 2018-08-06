@@ -303,7 +303,38 @@ public class DHCPBot extends ListenerAdapter{
 			return;
 		}
 		if(cmd.equals("release")) {
-			channel.sendMessage("Command not implemented (yet) - this is not a command not found message").queue();
+			//channel.sendMessage("Command not implemented (yet) - this is not a command not found message").queue();
+			if(!(guild.getMember(user).hasPermission(Permission.KICK_MEMBERS) && guild.getSelfMember().hasPermission(Permission.KICK_MEMBERS))) {
+				channel.sendMessage("Missing permissions: Kick members").queue();
+				return;
+			}
+			String output = "";
+			if(!msg.contains(" ")) {
+				channel.sendMessage("Usage: dhcp.release <user> [users...]").queue();
+			}
+			String ids = msg.trim().toLowerCase().replaceFirst("dhcp.release","").trim();
+			String[] usersToKick = ids.split(" ");
+			User kickedUser = null;
+			for(String id : usersToKick) {
+				try {
+					try {
+						if(id.contains(".")) {
+							kickedUser = getUserByIP(id, ipMap);
+						}
+						else {
+							kickedUser = guild.getMemberById(id).getUser();
+						}
+						kickedUser.openPrivateChannel().queue((ch) -> ch.sendMessage("You were kicked from " + guild.getName()).queue());
+					}
+					catch(Exception e) {}
+					guild.getController().kick(guild.getMember(kickedUser)).queue();
+					output += "Kicked " + kickedUser.getName() + "#" + kickedUser.getDiscriminator() + "\n";
+				}
+				catch(Exception e) {
+					output += "Failed to kick " + kickedUser.getName() + "#" + kickedUser.getDiscriminator() + ": " + e + "\n";
+				}
+			}
+			channel.sendMessage(output).queue();
 			return;
 		}
 	}

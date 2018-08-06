@@ -1,10 +1,8 @@
-package net.benjaminurquhart.dhcpbot;
-
 import net.dv8tion.jda.core.AccountType;
 import net.dv8tion.jda.core.JDA;
 import net.dv8tion.jda.core.JDABuilder;
 import net.dv8tion.jda.core.Permission;
-import net.dv8tion.jda.core.entities.*; //bad, this should never happen.
+import net.dv8tion.jda.core.entities.*;
 import net.dv8tion.jda.core.events.message.MessageReceivedEvent;
 import net.dv8tion.jda.core.hooks.ListenerAdapter;
 import net.dv8tion.jda.core.events.guild.GuildJoinEvent;
@@ -18,6 +16,9 @@ import java.util.Map;
 import java.util.List;
 import java.util.ArrayList;
 import java.util.Scanner;
+
+import javax.script.ScriptException;
+
 public class DHCPBot extends ListenerAdapter{
 	
 	private static String token = "";
@@ -60,7 +61,7 @@ public class DHCPBot extends ListenerAdapter{
 			}
 		}
 	}
-	private String getIPOFuser(User user, HashMap<User, String> ipMap) {
+	private String getIPOfUser(User user, HashMap<User, String> ipMap) {
 		return ipMap.get(user);
 	}
 	private User getUserByIP(String ip, HashMap<User, String> ipMap) {
@@ -72,6 +73,17 @@ public class DHCPBot extends ListenerAdapter{
 			}
 		}
 		return user;
+	}
+	private void setUserIp(String ip, User user, Guild guild) throws IOException{
+		File file = new File("dhcp/" + guild.getId() + "/" + user.getId());
+		FileWriter fw = null;
+		if(file.exists()) {
+			file.delete();
+		}
+		file.createNewFile();
+		fw = new FileWriter(file);
+		fw.write(ip);
+		fw.close();
 	}
 	@Override
 	public void onGuildMemberJoin(GuildMemberJoinEvent event) {
@@ -203,15 +215,16 @@ public class DHCPBot extends ListenerAdapter{
 			}
 			try {
 				String[] querySplit = query.split(" ");
+				String output = "Error: IP not registered";
 				if(!(querySplit.length >= 4)){
 					throw new IllegalArgumentException("Not enough arguments");
 				}
+				//System.out.println(querySplit[0]);
 				if(querySplit[0].equals("who") && querySplit.length == 5) {
 					if(querySplit[1].equals("has")) {
 						String tmpIp = querySplit[2].replace("?", "");
 						String toTell = "";
 						String toTellUser = "";
-						String output = "Error: IP not registered";
 						if(tmpIp.length() < 8 || !tmpIp.substring(0, 2).equals(ipRange.substring(0, 2))) {
 							throw new IllegalArgumentException("IP must be on the same IP range as the guild");
 						}
@@ -238,27 +251,53 @@ public class DHCPBot extends ListenerAdapter{
 						channel.sendMessage(toTellUser + " " + output).queue();
 					}
 				}
+				if(querySplit[1].equals("is")) {
+					if(querySplit[2].equals("at")) {
+						if(!getIPOfUser(user, ipMap).equals(querySplit[0])) {
+							throw new ScriptException("ARP attacks are not supported (yet)");
+						}
+						String newIp = querySplit[3];
+						if(newIp.length() < 8 || !newIp.substring(0, 2).equals(ipRange.substring(0, 2))) {
+							throw new IllegalArgumentException("IP must be on the same IP range as the guild");
+						}
+						if(getUserByIP(newIp, ipMap) == null) {
+							ips.get(guild).put(user, newIp);
+							setUserIp(newIp, user, guild);
+							output = querySplit[0] + " is now at " + newIp;
+						}
+						else {
+							throw new IllegalArgumentException("IP address is already in use!");
+						}
+					}
+					else {
+						throw new IllegalArgumentException("`at` must come after `is` keyword");
+					}
+					channel.sendMessage(output).queue();
+				}
+				//Crafty's code that doesn't work. *Claps*
+				/*
 				else if(querySplit[0].matches("^(10|192)") && querySplit.length == 4){
 					if(querySplit[1].equals("is") && querySplit[2].equals("at")){
 						if(querySplit[3].matches("^(10|192)")){
 							String curIp = querySplit[0];
 							String newIp = querySplit[3];
-							if(getUserByIP(newIp, ips) || getUserByIP(curIp, ips) != user){
+							if(!(getUserByIP(newIp, ipMap).equals(user) || getUserByIP(curIp, ipMap).equals(user))) {
+							//if(getUserByIP(newIp, ipMap) || getUserByIP(curIp, ipMap) != user){
 								channel.sendMessage("Arp poisoning attacks are not yet implemented").queue();
 								return;
 							}
-							if(getIPOFuser(user, ips).equals(newIp)){
+							if(getIPOFuser(user, ipMap).equals(newIp)){
 								channel.sendMessage(user + " is at " + newIp).queue();
 								return;
 							}
-							ips.put(user,newIp);
+							ips.get(guild).put(user,  newIp);
 							channel.sendMessage(user + " is at " + newIp).queue();
 							return;
 						} else{
 							throw new IllegalArgumentException("an IP must come after `at` keyword");
 						}
 					}	
-				}
+				}*/
 			}
 			catch(Exception e) {
 				channel.sendMessage("Error while parsing ARP request: " + e + "\nYou probably typed something wrong, try again").queue();

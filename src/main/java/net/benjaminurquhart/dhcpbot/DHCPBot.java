@@ -1,3 +1,5 @@
+package net.benjaminurquhart.dhcpbot;
+
 import net.dv8tion.jda.core.AccountType;
 import net.dv8tion.jda.core.JDA;
 import net.dv8tion.jda.core.JDABuilder;
@@ -251,8 +253,7 @@ public class DHCPBot extends ListenerAdapter{
 						channel.sendMessage(toTellUser + " " + output).queue();
 					}
 				}
-				if(querySplit[1].equals("is")) {
-					if(querySplit[2].equals("at")) {
+				/*if(querySplit[1].equals("is") && querySplit[2].equals("at")) {
 						if(!getIPOfUser(user, ipMap).equals(querySplit[0])) {
 							throw new ScriptException("ARP attacks are not supported (yet)");
 						}
@@ -266,38 +267,34 @@ public class DHCPBot extends ListenerAdapter{
 							output = querySplit[0] + " is now at " + newIp;
 						}
 						else {
-							throw new IllegalArgumentException("IP address is already in use!");
+							throw new ScriptException("ARP attacks are not supported (yet)");
 						}
-					}
-					else {
-						throw new IllegalArgumentException("`at` must come after `is` keyword");
-					}
 					channel.sendMessage(output).queue();
-				}
-				//Crafty's code that doesn't work. *Claps*
-				/*
-				else if(querySplit[0].matches("^(10|192)") && querySplit.length == 4){
+				}*/
+				
+				if(querySplit[0].matches("^(?:10\\.0|192\\.168)\\.\\d{0,3}\\.\\d{0,3}") && querySplit.length == 4){
 					if(querySplit[1].equals("is") && querySplit[2].equals("at")){
-						if(querySplit[3].matches("^(10|192)")){
+						if(querySplit[3].matches("^(?:10\\.0|192\\.168)\\.\\d{0,3}\\.\\d{0,3}")){
 							String curIp = querySplit[0];
 							String newIp = querySplit[3];
-							if(!(getUserByIP(newIp, ipMap).equals(user) || getUserByIP(curIp, ipMap).equals(user))) {
-							//if(getUserByIP(newIp, ipMap) || getUserByIP(curIp, ipMap) != user){
-								channel.sendMessage("Arp poisoning attacks are not yet implemented").queue();
-								return;
+							if(newIp.length() < 8 || !newIp.substring(0, 2).equals(ipRange.substring(0, 2))) {
+								throw new IllegalArgumentException("IP must be on the same IP range as the guild");
 							}
-							if(getIPOFuser(user, ipMap).equals(newIp)){
-								channel.sendMessage(user + " is at " + newIp).queue();
-								return;
+							if(getUserByIP(newIp, ipMap) || !getUserByIP(curIp, ipMap).equals(user)){
+								throw new ScriptException("ARP attacks are not supported (yet)");
 							}
-							ips.get(guild).put(user,  newIp);
-							channel.sendMessage(user + " is at " + newIp).queue();
+							if(!getIPOFuser(user, ipMap).equals(newIp)){
+								ips.get(guild).put(user,  newIp);
+							}
+							channel.sendMessage(user.getAsMention() + " is at " + newIp).queue();
 							return;
 						} else{
-							throw new IllegalArgumentException("an IP must come after `at` keyword");
+							throw new IllegalArgumentException("IP must come after `at` keyword");
 						}
-					}	
-				}*/
+					} else {
+						throw new IllegalArgumentException("`is at <IP>` must come after IP");
+					}
+				}
 			}
 			catch(Exception e) {
 				channel.sendMessage("Error while parsing ARP request: " + e + "\nYou probably typed something wrong, try again").queue();

@@ -238,9 +238,9 @@ public class DHCPBot extends ListenerAdapter{
 						channel.sendMessage(toTellUser + " " + output).queue();
 					}
 				}
-				else if(querySplit[0].matches("^(10|192)") && querySplit.length == 4){
+				else if(querySplit[0].matches("^(?:10\\.0|192\\.168)\\.\\d{0,3}\\.\\d{0,3}")){
 					if(querySplit[1].equals("is") && querySplit[2].equals("at")){
-						if(querySplit[3].matches("^(10|192)")){
+						if(querySplit[3].matches("^(?:10\\.0|192\\.168)\\.\\d{0,3}\\.\\d{0,3}")){
 							String curIp = querySplit[0];
 							String newIp = querySplit[3];
 							if(getUserByIP(newIp, ips) || getUserByIP(curIp, ips) != user){
@@ -258,6 +258,7 @@ public class DHCPBot extends ListenerAdapter{
 							throw new IllegalArgumentException("an IP must come after `at` keyword");
 						}
 					}	
+					else System.out.println("didnt is at");
 				}
 			}
 			catch(Exception e) {

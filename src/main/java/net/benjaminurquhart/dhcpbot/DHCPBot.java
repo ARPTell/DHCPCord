@@ -284,7 +284,8 @@ public class DHCPBot extends ListenerAdapter{
 								throw new ScriptException("ARP attacks are not supported (yet)");
 							}
 							if(!getIPOFuser(user, ipMap).equals(newIp)){
-								ips.get(guild).put(user,  newIp);
+								ips.get(guild).put(user, newIp);
+								setUserIp(newIp, user, guild);
 							}
 							channel.sendMessage(user.getAsMention() + " is at " + newIp).queue();
 							return;

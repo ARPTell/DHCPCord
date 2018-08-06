@@ -274,7 +274,7 @@ public class DHCPBot extends ListenerAdapter{
 					}
 					channel.sendMessage(output).queue();
 				}
-				//Crafty's code that doesn't work. *Claps*
+				//Crafty's code. Pls fix kthx
 				/*
 				else if(querySplit[0].matches("^(10|192)") && querySplit.length == 4){
 					if(querySplit[1].equals("is") && querySplit[2].equals("at")){

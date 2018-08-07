@@ -9,6 +9,7 @@ import net.dv8tion.jda.core.events.message.MessageReceivedEvent;
 import net.dv8tion.jda.core.hooks.ListenerAdapter;
 import net.dv8tion.jda.core.events.guild.GuildJoinEvent;
 import net.dv8tion.jda.core.events.guild.member.GuildMemberJoinEvent;
+import net.dv8tion.jda.core.events.guild.member.GuildMemberLeaveEvent;
 
 import java.io.File;
 import java.io.FileWriter;
@@ -28,6 +29,7 @@ public class DHCPBot extends ListenerAdapter{
 	private static HashMap<Guild, HashMap<User, String>> ips = new HashMap<>();
 	private static final String[] IP_RANGES = {"192.168.%d.%d", "10.0.%d.%d"};
 	private static final String[] IP_RANGES_NOFORMAT = {"192.168.x.x", "10.0.x.x"};
+	private static final String NUMS = "0123456789.";
 	private static final String PREFIX = "dhcp.";
 	
 	public static void main(String[] args) throws Exception{
@@ -86,6 +88,22 @@ public class DHCPBot extends ListenerAdapter{
 		fw = new FileWriter(file);
 		fw.write(ip);
 		fw.close();
+	}
+	private void removeUserIP(User user, Guild guild) {
+		File file = new File("dhcp/" + guild.getId() + "/" + user.getId());
+		if(file.exists()) {
+			file.delete();
+		}
+		try {
+			ips.get(guild).remove(user);
+		}
+		catch(Exception e){}
+	}
+	@Override
+	public void onGuildMemberLeave(GuildMemberLeaveEvent event) {
+		Guild guild = event.getGuild();
+		User user = event.getUser();
+		removeUserIP(user, guild);
 	}
 	@Override
 	public void onGuildMemberJoin(GuildMemberJoinEvent event) {
@@ -185,11 +203,11 @@ public class DHCPBot extends ListenerAdapter{
 		if(cmd.equals("help")) {
 			channel.sendMessage(
 							"```Prefix: " + PREFIX + " | This guild is on the " + ipRange + " IP range "+ "\n\n" + 
-							"dhcp.help           | summons this help menu\n" +
-							"dhcp.status         | gets your IP address\n" +
-							"dhcp.arp <query>    | submit ARP requests\n" +
-							"dhcp.table          | shows a list of IPs and their corresponding owners. Only works in small guilds\n" +
-							"dhcp.release [user] | assigns the given user a different IP (if one is available). Manage Server permission required for others.\n" +
+							"dhcp.help                      | summons this help menu\n" +
+							"dhcp.status                    | gets your IP address\n" +
+							"dhcp.arp <query>               | submit ARP requests\n" +
+							"dhcp.table                     | shows a list of IPs and their corresponding owners. Only works in small guilds\n" +
+							"dhcp.release <user> [users...] | kicks the given users off the network. Requires Kick Member perms.\n" +
 							"" +
 							"```").queue();
 			return;
@@ -252,8 +270,8 @@ public class DHCPBot extends ListenerAdapter{
 						catch(NullPointerException e) {}
 						channel.sendMessage(toTellUser + " " + output).queue();
 					}
-				}
-				/*if(querySplit[1].equals("is") && querySplit[2].equals("at")) {
+				}/*
+				if(querySplit[1].equals("is") && querySplit[2].equals("at")) {
 						if(!getIPOfUser(user, ipMap).equals(querySplit[0])) {
 							throw new ScriptException("ARP attacks are not supported (yet)");
 						}
@@ -270,8 +288,8 @@ public class DHCPBot extends ListenerAdapter{
 							throw new ScriptException("ARP attacks are not supported (yet)");
 						}
 					channel.sendMessage(output).queue();
-				}*/
-				
+				}
+				*/
 				if(querySplit[0].matches("^(?:10\\.0|192\\.168)\\.\\d{0,3}\\.\\d{0,3}") && querySplit.length == 4){
 					if(querySplit[1].equals("is") && querySplit[2].equals("at")){
 						if(querySplit[3].matches("^(?:10\\.0|192\\.168)\\.\\d{0,3}\\.\\d{0,3}")){
@@ -280,7 +298,7 @@ public class DHCPBot extends ListenerAdapter{
 							if(newIp.length() < 8 || !newIp.substring(0, 2).equals(ipRange.substring(0, 2))) {
 								throw new IllegalArgumentException("IP must be on the same IP range as the guild");
 							}
-							if(!(getUserByIP(newIp, ipMap).equals(user) || getUserByIP(curIp, ipMap).equals(user))){
+							if(!((getUserByIP(newIp, ipMap) == null) || getUserByIP(curIp, ipMap).equals(user))){
 								throw new ScriptException("ARP attacks are not supported (yet)");
 							}
 							if(!getIPOfUser(user, ipMap).equals(newIp)){
@@ -304,14 +322,14 @@ public class DHCPBot extends ListenerAdapter{
 		}
 		if(cmd.equals("release")) {
 			//channel.sendMessage("Command not implemented (yet) - this is not a command not found message").queue();
+			if(!msg.contains(" ")) {
+				channel.sendMessage("Usage: dhcp.release <user> [users...]").queue();
+			}
 			if(!(guild.getMember(user).hasPermission(Permission.KICK_MEMBERS) && guild.getSelfMember().hasPermission(Permission.KICK_MEMBERS))) {
 				channel.sendMessage("Missing permissions: Kick members").queue();
 				return;
 			}
 			String output = "";
-			if(!msg.contains(" ")) {
-				channel.sendMessage("Usage: dhcp.release <user> [users...]").queue();
-			}
 			String ids = msg.trim().toLowerCase().replaceFirst("dhcp.release","").trim();
 			String[] usersToKick = ids.split(" ");
 			User kickedUser = null;
@@ -331,7 +349,58 @@ public class DHCPBot extends ListenerAdapter{
 					output += "Kicked " + kickedUser.getName() + "#" + kickedUser.getDiscriminator() + "\n";
 				}
 				catch(Exception e) {
-					output += "Failed to kick " + kickedUser.getName() + "#" + kickedUser.getDiscriminator() + ": " + e + "\n";
+					output += "Failed to kick " + kickedUser.getName() + "#" + kickedUser.getDiscriminator() + ": " + e.getMessage() + "\n";
+				}
+			}
+			channel.sendMessage(output).queue();
+			return;
+		}
+		if(cmd.equals("macban")) {
+			if(!msg.contains(" ")) {
+				channel.sendMessage("Usage: dhcp.macban <user> [users...]").queue();
+				return;
+			}
+			if(!(guild.getMember(user).hasPermission(Permission.BAN_MEMBERS) && guild.getSelfMember().hasPermission(Permission.BAN_MEMBERS))) {
+				channel.sendMessage("Missing permissions: Ban members").queue();
+				return;
+			}
+			String output = "";
+			String ids = msg.trim().toLowerCase().replaceFirst("dhcp.macban","").trim();
+			String[] usersToBan = ids.split(" ");
+			User bannedUser = null;
+			String reason = "No reason given";
+			boolean brk = false;
+			for(String id : usersToBan) {
+				brk = false;
+				try {
+					try {
+						for(char c : id.toCharArray()) {
+							if(!NUMS.contains(Character.toString(c))) {
+								if(reason.equals("No reason given")) {
+									reason = "";
+								}
+								brk = true;
+								reason += id;
+								break;
+							}
+						}
+						if(brk) {
+							continue;
+						}
+						if(id.contains(".")) {
+							bannedUser = getUserByIP(id, ipMap);
+						}
+						else {
+							bannedUser = guild.getMemberById(id).getUser();
+						}
+						bannedUser.openPrivateChannel().queue((ch) -> ch.sendMessage("You were kicked from " + guild.getName()).queue());
+					}
+					catch(Exception e) {}
+					guild.getController().ban(guild.getMember(bannedUser), 7, "[Banned by " + user.getName() + "#" + user.getDiscriminator() + "]: " + reason).queue();
+					output += "Banned " + bannedUser.getName() + "#" + bannedUser.getDiscriminator() + "\n";
+				}
+				catch(Exception e) {
+					output += "Failed to ban " + bannedUser.getName() + "#" + bannedUser.getDiscriminator() + ": " + e.getMessage() + "\n";
 				}
 			}
 			channel.sendMessage(output).queue();

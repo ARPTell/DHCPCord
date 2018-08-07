@@ -280,10 +280,10 @@ public class DHCPBot extends ListenerAdapter{
 							if(newIp.length() < 8 || !newIp.substring(0, 2).equals(ipRange.substring(0, 2))) {
 								throw new IllegalArgumentException("IP must be on the same IP range as the guild");
 							}
-							if(getUserByIP(newIp, ipMap) || !getUserByIP(curIp, ipMap).equals(user)){
+							if(!getUserByIP(newIp, ipMap).equals(user) || getUserByIP(curIp, ipMap).equals(user)){
 								throw new ScriptException("ARP attacks are not supported (yet)");
 							}
-							if(!getIPOFuser(user, ipMap).equals(newIp)){
+							if(!getIPOfUser(user, ipMap).equals(newIp)){
 								ips.get(guild).put(user, newIp);
 								setUserIp(newIp, user, guild);
 							}

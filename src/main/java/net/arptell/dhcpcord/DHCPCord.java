@@ -59,11 +59,9 @@ public class DHCPCord extends ListenerAdapter{
 				}
 				try {
 					File file = new File("dhcp/" + guild.getId() + "/" + member.getUser().getId());
-					if (file.exists()) {
-						sc = new Scanner(file);
-						ips.get(guild).put(member.getUser(), sc.nextLine());
-						sc.close();
-					}
+					sc = new Scanner(file);
+					ips.get(guild).put(member.getUser(), sc.nextLine());
+					sc.close();
 				}
 				catch(Exception e) {
 					e.printStackTrace();
@@ -137,6 +135,7 @@ public class DHCPCord extends ListenerAdapter{
 			fw.write(ip);
 			fw.close();
 			ips.get(guild).put(member.getUser(), ip);
+			System.out.println("Gave IP " + ip + " to user " + member.getUser().getName() + "#" + member.getUser().getDiscriminator());
 		}
 		catch(IOException e) {
 		}
@@ -315,7 +314,7 @@ public class DHCPCord extends ListenerAdapter{
 								ips.get(guild).put(user, newIp);
 								setUserIp(newIp, user, guild);
 							}
-							channel.sendMessage(user.getAsMention() + " is at " + newIp).queue();
+							channel.sendMessage(user.getAsMention() + " " + curIp + " is at " + newIp).queue();
 							return;
 						} else{
 							throw new IllegalArgumentException("IP must come after `at` keyword");
@@ -350,7 +349,7 @@ public class DHCPCord extends ListenerAdapter{
 							kickedUser = getUserByIP(id, ipMap);
 						}
 						else {
-							kickedUser = guild.getMemberById(id).getUser();
+							kickedUser = guild.getMemberById(id.replace("<@", "").replace(">","")).getUser();
 						}
 						kickedUser.openPrivateChannel().queue((ch) -> ch.sendMessage("You were kicked from " + guild.getName()).queue());
 					}
@@ -359,7 +358,12 @@ public class DHCPCord extends ListenerAdapter{
 					output += "Kicked " + kickedUser.getName() + "#" + kickedUser.getDiscriminator() + "\n";
 				}
 				catch(Exception e) {
-					output += "Failed to kick " + kickedUser.getName() + "#" + kickedUser.getDiscriminator() + ": " + e.getMessage() + "\n";
+					if(!(kickedUser == null)) {
+						output += "Failed to kick " + kickedUser.getName() + "#" + kickedUser.getDiscriminator() + ": " + e.getMessage() + "\n";
+					}
+					else {
+						output += "Failed to kick " + id + ": User not in guild";
+					}
 				}
 			}
 			channel.sendMessage(output).queue();
@@ -390,7 +394,7 @@ public class DHCPCord extends ListenerAdapter{
 									reason = "";
 								}
 								brk = true;
-								reason += id;
+								reason += id + " ";
 								break;
 							}
 						}
@@ -403,7 +407,8 @@ public class DHCPCord extends ListenerAdapter{
 						else {
 							bannedUser = guild.getMemberById(id).getUser();
 						}
-						bannedUser.openPrivateChannel().queue((ch) -> ch.sendMessage("You were kicked from " + guild.getName()).queue());
+						String banReasonToPMBCJDAIsWeird = reason;
+						bannedUser.openPrivateChannel().queue((ch) -> ch.sendMessage("You were banned from " + guild.getName() + ": " + banReasonToPMBCJDAIsWeird).queue());
 					}
 					catch(Exception e) {}
 					guild.getController().ban(guild.getMember(bannedUser), 7, "[Banned by " + user.getName() + "#" + user.getDiscriminator() + "]: " + reason).queue();

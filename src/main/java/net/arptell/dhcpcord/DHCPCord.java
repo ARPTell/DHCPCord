@@ -59,9 +59,11 @@ public class DHCPCord extends ListenerAdapter{
 				}
 				try {
 					File file = new File("dhcp/" + guild.getId() + "/" + member.getUser().getId());
-					sc = new Scanner(file);
-					ips.get(guild).put(member.getUser(), sc.nextLine());
-					sc.close();
+					if (file.exists()) {
+						sc = new Scanner(file);
+						ips.get(guild).put(member.getUser(), sc.nextLine());
+						sc.close();
+					}
 				}
 				catch(Exception e) {
 					e.printStackTrace();

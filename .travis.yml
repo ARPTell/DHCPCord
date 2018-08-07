@@ -17,3 +17,4 @@ deploy:
   file: target/dhcpcord-0.1.jar
   on:
     repo: ARPTell/DHCPCord
+    tags: false #NONONONONONONO V2

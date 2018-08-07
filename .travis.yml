@@ -18,7 +18,7 @@ deploy:
   file: target/dhcpcord-0.1.jar
 
 after_success:
-  - curl https://raw.githubusercontent.com/k3rn31p4nic/travis-ci-discord-webhook/master/send.sh | bash success $WEBHOOK_URL
+  - curl https://raw.githubusercontent.com/k3rn31p4nic/travis-ci-discord-webhook/master/send.sh | bash -s -- success $WEBHOOK_URL
 
 after_failure:
-  - curl https://raw.githubusercontent.com/k3rn31p4nic/travis-ci-discord-webhook/master/send.sh | bash failure $WEBHOOK_URL
+  - curl https://raw.githubusercontent.com/k3rn31p4nic/travis-ci-discord-webhook/master/send.sh | bash -s -- failure $WEBHOOK_URL

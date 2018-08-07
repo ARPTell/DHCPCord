@@ -1,4 +1,5 @@
 language: java
+if: tag IS blank # fix double builds?
 jdk:
 - openjdk10
 script:

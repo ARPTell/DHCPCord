@@ -6,8 +6,8 @@ script:
 - mvn install
 before_deploy:
   # Set up git user name and tag this commit
-  - git config --local user.name "YOUR GIT USER NAME"
-  - git config --local user.email "YOUR GIT USER EMAIL"
+  - git config --local user.name "ry00001"
+  - git config --local user.email "ry00001@protonmail.com"
   - git tag "$(date +'%Y%m%d%H%M%S')-$(git log --format=%h -1)"
 deploy:
   provider: releases

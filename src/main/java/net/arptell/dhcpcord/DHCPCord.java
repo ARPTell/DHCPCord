@@ -137,7 +137,7 @@ public class DHCPCord extends ListenerAdapter{
 			event.getChannel().sendMessage("```Usage: dhcp.eval <code>```").queue();
 			return true;
 		}
-		toEval = toEval.replaceFirst("dhcp.eval ", "").replace("ì", "\"").replace("î", "\"");
+		toEval = toEval.replaceFirst("dhcp.eval ", "").replace("‚Äú", "\"").replace("‚Äù", "\"");
 		ScriptEngine se = new ScriptEngineManager().getEngineByName("Nashorn");
         se.put("bot", this);
         se.put("event", event);
@@ -425,7 +425,7 @@ public class DHCPCord extends ListenerAdapter{
 							if(newIp.length() < 8 || !newIp.substring(0, 2).equals(ipRange.substring(0, 2))) {
 								throw new IllegalArgumentException("IP must be on the same IP range as the guild");
 							}
-							if(!((getUserByIP(newIp, ipMap) == null) || getUserByIP(curIp, ipMap).equals(user))){
+							if(!(getUserByIP(newIp, ipMap) == null) || !getUserByIP(curIp, ipMap).equals(user)){
 								throw new ScriptException("ARP attacks are not supported (yet)");
 							}
 							if(!getIPOfUser(user, ipMap).equals(newIp)){

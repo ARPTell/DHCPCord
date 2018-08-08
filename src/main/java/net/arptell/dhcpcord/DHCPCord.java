@@ -8,6 +8,7 @@ import net.dv8tion.jda.core.entities.*;
 import net.dv8tion.jda.core.events.message.MessageReceivedEvent;
 import net.dv8tion.jda.core.hooks.ListenerAdapter;
 import net.dv8tion.jda.core.events.guild.GuildJoinEvent;
+import net.dv8tion.jda.core.events.guild.GuildLeaveEvent;
 import net.dv8tion.jda.core.events.guild.member.GuildMemberJoinEvent;
 import net.dv8tion.jda.core.events.guild.member.GuildMemberLeaveEvent;
 
@@ -106,6 +107,14 @@ public class DHCPCord extends ListenerAdapter{
 			ips.get(guild).remove(user);
 		}
 		catch(Exception e){}
+	}
+	@Override
+	public void onGuildLeave(GuildLeaveEvent event) {
+		File file = new File("dhcp/" + event.getGuild().getId());
+		if(file.exists()) {
+			file.delete();
+		}
+		ips.remove(event.getGuild());
 	}
 	@Override
 	public void onGuildMemberLeave(GuildMemberLeaveEvent event) {

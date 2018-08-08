@@ -3,3 +3,5 @@ target/
 token.txt
 *.jar
 dhcp/
+bin/
+.settings/

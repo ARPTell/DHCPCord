@@ -457,7 +457,7 @@ public class DHCPCord extends ListenerAdapter{
 			String ids = msg.trim().toLowerCase().replaceFirst("dhcp.sourcequench","").replaceFirst("dhcp.quench", "").trim();
 			String[] usersToMute = ids.split(" ");
 			User mutedUser = null;
-			String reason = "No reason given";
+			//String reason = "No reason given";
 			for(String id : usersToMute) {
 				try {
 					try {
@@ -474,6 +474,42 @@ public class DHCPCord extends ListenerAdapter{
 				}
 				catch(Exception e) {
 					output += "Failed to mute **" + mutedUser.getName() + "#" + mutedUser.getDiscriminator() + "**: " + e.getMessage() + "\n";
+					//e.printStackTrace();
+				}
+			}
+			channel.sendMessage(output).queue();
+			return;
+		}
+		if(cmd.equals("unquench") || cmd.equals("unsourcequench")) {
+			if(!msg.contains(" ")) {
+				channel.sendMessage("Usage: dhcp.unquench <user> [users...]").queue();
+				return;
+			}
+			if(!(guild.getMember(user).hasPermission(Permission.MANAGE_ROLES) && guild.getSelfMember().hasPermission(Permission.MANAGE_ROLES))) {
+				channel.sendMessage("Missing permissions: Manage roles").queue();
+				return;
+			}
+			String output = "";
+			String ids = msg.trim().toLowerCase().replaceFirst("dhcp.unsourcequench","").replaceFirst("dhcp.unquench", "").trim();
+			String[] usersToUnmute = ids.split(" ");
+			User mutedUser = null;
+			//String reason = "No reason given";
+			for(String id : usersToUnmute) {
+				try {
+					try {
+						if(id.contains(".")) {
+							mutedUser = getUserByIP(id, ipMap);
+						}
+						else {
+							mutedUser = guild.getMemberById(id).getUser();
+						}
+					}
+					catch(Exception e) {}
+					guild.getController().removeSingleRoleFromMember(guild.getMember(mutedUser), getMutedRole(guild)).queue();
+					output += "Unmuted **" + mutedUser.getName() + "#" + mutedUser.getDiscriminator() + "**\n";
+				}
+				catch(Exception e) {
+					output += "Failed to unmute **" + mutedUser.getName() + "#" + mutedUser.getDiscriminator() + "**: " + e.getMessage() + "\n";
 					//e.printStackTrace();
 				}
 			}

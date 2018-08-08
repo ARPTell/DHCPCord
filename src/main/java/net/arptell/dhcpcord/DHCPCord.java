@@ -27,9 +27,10 @@ public class DHCPCord extends ListenerAdapter{
 	private static String token = "";
 	private static JDA jda = null;
 	private static HashMap<Guild, HashMap<User, String>> ips = new HashMap<>();
+	private static HashMap<Guild, String> muteRoles = new HashMap<>();
 	private static final String[] IP_RANGES = {"192.168.%d.%d", "10.0.%d.%d"};
 	private static final String[] IP_RANGES_NOFORMAT = {"192.168.x.x", "10.0.x.x"};
-	private static final String NUMS = "0123456789.";
+	//private static final String NUMS = "0123456789.";
 	private static final String PREFIX = "dhcp.";
 
 	public DHCPCord() throws Exception {
@@ -107,6 +108,19 @@ public class DHCPCord extends ListenerAdapter{
 			ips.get(guild).remove(user);
 		}
 		catch(Exception e){}
+	}
+	private Role getMutedRole(Guild guild) {
+		Role muteRole = null;
+		try {
+			muteRole = guild.getRoleById(muteRoles.get(guild));
+		}
+		catch(Exception e) {
+			try {
+				muteRole = guild.getRolesByName("Muted", true).get(0);
+			}
+			catch(NullPointerException exc) {}
+		}
+		return muteRole;
 	}
 	@Override
 	public void onGuildLeave(GuildLeaveEvent event) {
@@ -368,10 +382,10 @@ public class DHCPCord extends ListenerAdapter{
 				}
 				catch(Exception e) {
 					if(!(kickedUser == null)) {
-						output += "Failed to kick " + kickedUser.getName() + "#" + kickedUser.getDiscriminator() + ": " + e.getMessage() + "\n";
+						output += "Failed to kick **" + kickedUser.getName() + "#" + kickedUser.getDiscriminator() + "**: " + e.getMessage() + "\n";
 					}
 					else {
-						output += "Failed to kick " + id + ": User not in guild";
+						output += "Failed to kick **" + id + "**: User not in guild";
 					}
 				}
 			}
@@ -392,11 +406,11 @@ public class DHCPCord extends ListenerAdapter{
 			String[] usersToBan = ids.split(" ");
 			User bannedUser = null;
 			String reason = "No reason given";
-			boolean brk = false;
+			//boolean brk = false;
 			for(String id : usersToBan) {
-				brk = false;
+				//brk = false;
 				try {
-					try {
+					try {/*
 						for(char c : id.toCharArray()) {
 							if(!NUMS.contains(Character.toString(c))) {
 								if(reason.equals("No reason given")) {
@@ -409,7 +423,7 @@ public class DHCPCord extends ListenerAdapter{
 						}
 						if(brk) {
 							continue;
-						}
+						}*/
 						if(id.contains(".")) {
 							bannedUser = getUserByIP(id, ipMap);
 						}
@@ -421,10 +435,46 @@ public class DHCPCord extends ListenerAdapter{
 					}
 					catch(Exception e) {}
 					guild.getController().ban(guild.getMember(bannedUser), 7, "[Banned by " + user.getName() + "#" + user.getDiscriminator() + "]: " + reason).queue();
-					output += "Banned " + bannedUser.getName() + "#" + bannedUser.getDiscriminator() + "\n";
+					output += "Banned **" + bannedUser.getName() + "#" + bannedUser.getDiscriminator() + "**\n";
 				}
 				catch(Exception e) {
-					output += "Failed to ban " + bannedUser.getName() + "#" + bannedUser.getDiscriminator() + ": " + e.getMessage() + "\n";
+					output += "Failed to ban **" + bannedUser.getName() + "#" + bannedUser.getDiscriminator() + "**: " + e.getMessage() + "\n";
+				}
+			}
+			channel.sendMessage(output).queue();
+			return;
+		}
+		if(cmd.equals("quench") || cmd.equals("sourcequench")) {
+			if(!msg.contains(" ")) {
+				channel.sendMessage("Usage: dhcp.quench <user> [users...]").queue();
+				return;
+			}
+			if(!(guild.getMember(user).hasPermission(Permission.MANAGE_ROLES) && guild.getSelfMember().hasPermission(Permission.MANAGE_ROLES))) {
+				channel.sendMessage("Missing permissions: Manage roles").queue();
+				return;
+			}
+			String output = "";
+			String ids = msg.trim().toLowerCase().replaceFirst("dhcp.sourcequench","").replaceFirst("dhcp.quench", "").trim();
+			String[] usersToMute = ids.split(" ");
+			User mutedUser = null;
+			String reason = "No reason given";
+			for(String id : usersToMute) {
+				try {
+					try {
+						if(id.contains(".")) {
+							mutedUser = getUserByIP(id, ipMap);
+						}
+						else {
+							mutedUser = guild.getMemberById(id).getUser();
+						}
+					}
+					catch(Exception e) {}
+					guild.getController().addSingleRoleToMember(guild.getMember(mutedUser), getMutedRole(guild)).queue();
+					output += "Muted **" + mutedUser.getName() + "#" + mutedUser.getDiscriminator() + "**\n";
+				}
+				catch(Exception e) {
+					output += "Failed to mute **" + mutedUser.getName() + "#" + mutedUser.getDiscriminator() + "**: " + e.getMessage() + "\n";
+					//e.printStackTrace();
 				}
 			}
 			channel.sendMessage(output).queue();

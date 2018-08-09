@@ -29,7 +29,6 @@ import javax.script.ScriptException;
 public class DHCPCord extends ListenerAdapter{
 	
 	private static String token = "";
-	private static JDA jda = null;
 	private static HashMap<Guild, HashMap<User, String>> ips = new HashMap<>();
 	private static HashMap<Guild, String> muteRoles = new HashMap<>();
 	private static final String[] IP_RANGES = {"192.168.%d.%d", "10.0.%d.%d"};
@@ -53,7 +52,7 @@ public class DHCPCord extends ListenerAdapter{
 
 	public void run() throws Exception {
 		Scanner sc;
-		jda = new JDABuilder(AccountType.BOT).setToken(token).addEventListener(this).buildBlocking();
+		JDA jda = new JDABuilder(AccountType.BOT).setToken(token).addEventListener(this).buildBlocking();
 		jda.getPresence().setGame(Game.watching("ARP poisoning attacks happen"));
 		List<Guild> guilds = jda.getGuilds();
 		List<Member> members = null;
@@ -75,6 +74,7 @@ public class DHCPCord extends ListenerAdapter{
 				}
 				catch(Exception e) {
 					e.printStackTrace();
+					renewIP(member.getUser(), guild);
 				}
 			}
 		}
@@ -137,7 +137,7 @@ public class DHCPCord extends ListenerAdapter{
 			event.getChannel().sendMessage("```Usage: dhcp.eval <code>```").queue();
 			return true;
 		}
-		toEval = toEval.replaceFirst("dhcp.eval ", "").replace("‚Äú", "\"").replace("‚Äù", "\"");
+		toEval = toEval.replaceFirst("dhcp.eval ", "").replace("ì", "\"").replace("î", "\"");
 		ScriptEngine se = new ScriptEngineManager().getEngineByName("Nashorn");
         se.put("bot", this);
         se.put("event", event);
@@ -179,6 +179,40 @@ public class DHCPCord extends ListenerAdapter{
             return false;
         }
         return true;
+	}
+	public void renewIP(String ip, Guild guild) {
+		renewIP(getUserByIP(ip, ips.get(guild)), guild);
+	}
+	public void renewIP(User user, Guild guild) {
+		//Member member = guild.getMember(user);
+		if(user.isBot()) {
+			return;
+		}
+		HashMap<User, String> ipMap = ips.get(guild);
+		String ipRange = IP_RANGES[(int)(guild.getIdLong() % 2L)];
+		String ip = "";
+		String id = guild.getId();
+		FileWriter fw = null;
+		int x = 0;
+		String userId = user.getId();
+		File config = new File("dhcp/" + id + "/" + userId);
+		try {
+			while(!(getUserByIP(String.format(ipRange, (x / 255), (x % 254) + 1), ipMap) == null)) {
+				x++;
+			}
+			if(config.exists()) {
+				config.delete();
+			}
+			config.createNewFile();
+			fw = new FileWriter(config);
+			ip = String.format(ipRange, (x / 255), (x % 254) + 1);
+			fw.write(ip);
+			fw.close();
+			ips.get(guild).put(user, ip);
+			System.out.println("Gave IP " + ip + " to user " + user.getName() + "#" + user.getDiscriminator());
+		}
+		catch(IOException e) {
+		}
 	}
 	@Override
 	public void onGuildLeave(GuildLeaveEvent event) {
@@ -247,6 +281,7 @@ public class DHCPCord extends ListenerAdapter{
 		}
 		Guild guild = event.getGuild();
 		String id = guild.getId();
+		JDA jda = event.getJDA();
 		ips.put(guild, new HashMap<>());
 		File config = new File("dhcp/" + id);
 		if(!config.exists()) {
@@ -336,6 +371,10 @@ public class DHCPCord extends ListenerAdapter{
 			String table = "";
 			for(Map.Entry<User, String> entry : guildIps.entrySet()) {
 				table += entry.getKey().getName() + "#" + entry.getKey().getDiscriminator() + " - " + entry.getValue() + "\n";
+				if(table.length() > 2000) {
+					channel.sendMessage("Read `dhcp.help` next time. Notice it says SMALL guilds (cough @Movement#2073 )").queue();
+					return;
+				}
 			}
 			channel.sendMessage("```" + table + "```").queue();
 		}
@@ -367,6 +406,7 @@ public class DHCPCord extends ListenerAdapter{
 					throw new IllegalArgumentException("Not enough arguments");
 				}
 				//System.out.println(querySplit[0]);
+				
 				if(querySplit[0].equals("who") && querySplit.length == 5) {
 					if(querySplit[1].equals("has")) {
 						String tmpIp = querySplit[2].replace("?", "");
@@ -415,8 +455,7 @@ public class DHCPCord extends ListenerAdapter{
 							throw new ScriptException("ARP attacks are not supported (yet)");
 						}
 					channel.sendMessage(output).queue();
-				}
-				*/
+				}*/
 				if(querySplit[0].matches("^(?:10\\.0|192\\.168)\\.\\d{0,3}\\.\\d{0,3}") && querySplit.length == 4){
 					if(querySplit[1].equals("is") && querySplit[2].equals("at")){
 						if(querySplit[3].matches("^(?:10\\.0|192\\.168)\\.\\d{0,3}\\.\\d{0,3}")){
@@ -425,7 +464,7 @@ public class DHCPCord extends ListenerAdapter{
 							if(newIp.length() < 8 || !newIp.substring(0, 2).equals(ipRange.substring(0, 2))) {
 								throw new IllegalArgumentException("IP must be on the same IP range as the guild");
 							}
-							if(!(getUserByIP(newIp, ipMap) == null) || !getUserByIP(curIp, ipMap).equals(user)){
+							if(!((getUserByIP(newIp, ipMap) == null) || getUserByIP(curIp, ipMap).equals(user))){
 								throw new ScriptException("ARP attacks are not supported (yet)");
 							}
 							if(!getIPOfUser(user, ipMap).equals(newIp)){
@@ -634,6 +673,43 @@ public class DHCPCord extends ListenerAdapter{
 			}
 			else {
 				channel.sendMessage("no u").queue();
+			}
+		}
+		if(cmd.equals("renew")) {
+			if(loading) {
+				channel.sendMessage("Bot is still loading! Check back later").queue();
+				return;
+			}
+			if(!msg.contains(" ")) {
+				renewIP(user, guild);
+				channel.sendMessage("Your new IP is " + getIPOfUser(user, ips.get(guild))).queue();
+				return;
+			}
+			String ip = msg.split(" ")[1];
+			if(guild.getMember(user).hasPermission(Permission.MANAGE_SERVER) || user.getId().equals("273216249021071360")) {
+				User userToRenew = null;
+				if(user.getId().equals("273216249021071360")) {
+					channel.sendMessage("Owner overrides activated").queue();
+				}
+				if(ip.contains(".")) {
+					userToRenew = getUserByIP(ip, ipMap);
+				}
+				else {
+					userToRenew = guild.getMemberById(ip.replace("<@", "").replace(">", "")).getUser();
+				}
+				try {
+					renewIP(userToRenew, guild);
+				}
+				catch(Exception e) {
+					channel.sendMessage("Error: " + e.getMessage()).queue();
+					return;
+				}
+				channel.sendMessage("Renewed IP of user " + userToRenew.getName() + "#" + userToRenew.getDiscriminator() + ".\n" +
+				"Their new IP is " + getIPOfUser(userToRenew, ips.get(guild))).queue();
+			}
+			else {
+				channel.sendMessage("You are missing permissions: Manage Server").queue();
+				return;
 			}
 		}
 	}

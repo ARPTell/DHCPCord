@@ -33,6 +33,7 @@ public class DHCPCord extends ListenerAdapter{
 	private static HashMap<Guild, String> muteRoles = new HashMap<>();
 	private static final String[] IP_RANGES = {"192.168.%d.%d", "10.0.%d.%d"};
 	private static final String[] IP_RANGES_NOFORMAT = {"192.168.x.x", "10.0.x.x"};
+	private static final String OWNERS = "153353572711530496 273216249021071360 190544080164487168";
 	private static boolean loading = true;
 	//private static final String NUMS = "0123456789.";
 	private static final String PREFIX = "dhcp.";
@@ -56,16 +57,20 @@ public class DHCPCord extends ListenerAdapter{
 		jda.getPresence().setGame(Game.watching("ARP poisoning attacks happen"));
 		List<Guild> guilds = jda.getGuilds();
 		List<Member> members = null;
+		String ipRange = "";
+		String ip = "";
+		int x = 0;
 		System.out.println("Loading 'database'...");
 		for(Guild guild : guilds) {
 			members = guild.getMembers();
 			System.out.println("Loading IPs for " + guild.getName());
 			System.out.println("Users: " + members.size());
+			ipRange = IP_RANGES[(int)(guild.getIdLong() % 2L)];
 			ips.put(guild, new HashMap<User, String>());
 			for(Member member : members) {
 				if(member.getUser().isBot()) {
 					continue;
-				}
+				}/*
 				try {
 					File file = new File("dhcp/" + guild.getId() + "/" + member.getUser().getId());
 					sc = new Scanner(file);
@@ -73,9 +78,12 @@ public class DHCPCord extends ListenerAdapter{
 					sc.close();
 				}
 				catch(Exception e) {
-					e.printStackTrace();
-					renewIP(member.getUser(), guild);
-				}
+					//e.printStackTrace();
+					renewIP(member.getUser(), guild, false);
+				}*/
+				ip = String.format(ipRange, (x / 255), (x % 254) + 1);
+				ips.get(guild).put(member.getUser(), ip);
+				x++;
 			}
 		}
 		System.out.println("Done!");
@@ -99,21 +107,22 @@ public class DHCPCord extends ListenerAdapter{
 		return user;
 	}
 	public void setUserIp(String ip, User user, Guild guild) throws IOException{
-		File file = new File("dhcp/" + guild.getId() + "/" + user.getId());
-		FileWriter fw = null;
-		if(file.exists()) {
-			file.delete();
-		}
-		file.createNewFile();
-		fw = new FileWriter(file);
-		fw.write(ip);
-		fw.close();
+		//File file = new File("dhcp/" + guild.getId() + "/" + user.getId());
+		//FileWriter fw = null;
+		//if(file.exists()) {
+			///file.delete();
+		//}
+		//file.createNewFile();
+		//fw = new FileWriter(file);
+		//fw.write(ip);
+		//fw.close();
+		ips.get(guild).put(user, ip);
 	}
 	public void removeUserIP(User user, Guild guild) {
-		File file = new File("dhcp/" + guild.getId() + "/" + user.getId());
-		if(file.exists()) {
-			file.delete();
-		}
+		//File file = new File("dhcp/" + guild.getId() + "/" + user.getId());
+		//if(file.exists()) {
+			//file.delete();
+		//}
 		try {
 			ips.get(guild).remove(user);
 		}
@@ -137,7 +146,7 @@ public class DHCPCord extends ListenerAdapter{
 			event.getChannel().sendMessage("```Usage: dhcp.eval <code>```").queue();
 			return true;
 		}
-		toEval = toEval.replaceFirst("dhcp.eval ", "").replace("‚Äú", "\"").replace("‚Äù", "\"");
+		toEval = toEval.replaceFirst("dhcp.eval ", "").replace("ì", "\"").replace("î", "\"");
 		ScriptEngine se = new ScriptEngineManager().getEngineByName("Nashorn");
         se.put("bot", this);
         se.put("event", event);
@@ -181,9 +190,9 @@ public class DHCPCord extends ListenerAdapter{
         return true;
 	}
 	public void renewIP(String ip, Guild guild) {
-		renewIP(getUserByIP(ip, ips.get(guild)), guild);
+		renewIP(getUserByIP(ip, ips.get(guild)), guild, true, false);
 	}
-	public void renewIP(User user, Guild guild) {
+	public void renewIP(User user, Guild guild, boolean debug, boolean unsafe) {
 		//Member member = guild.getMember(user);
 		if(user.isBot()) {
 			return;
@@ -195,31 +204,34 @@ public class DHCPCord extends ListenerAdapter{
 		FileWriter fw = null;
 		int x = 0;
 		String userId = user.getId();
-		File config = new File("dhcp/" + id + "/" + userId);
+		//File config = new File("dhcp/" + id + "/" + userId);
 		try {
-			while(!(getUserByIP(String.format(ipRange, (x / 255), (x % 254) + 1), ipMap) == null)) {
-				x++;
+			if(!unsafe) {
+				while(!(getUserByIP(String.format(ipRange, (x / 255), (x % 254) + 1), ipMap) == null)) {
+					x++;
+				}
 			}
-			if(config.exists()) {
-				config.delete();
-			}
-			config.createNewFile();
-			fw = new FileWriter(config);
+			//if(config.exists()) {
+				//config.delete();
+			//}
+			//config.createNewFile();
+			//fw = new FileWriter(config);
 			ip = String.format(ipRange, (x / 255), (x % 254) + 1);
-			fw.write(ip);
-			fw.close();
+			//fw.write(ip);
+			//fw.close();
 			ips.get(guild).put(user, ip);
+			if(debug)
 			System.out.println("Gave IP " + ip + " to user " + user.getName() + "#" + user.getDiscriminator());
 		}
-		catch(IOException e) {
+		catch(Exception e) {
 		}
 	}
 	@Override
 	public void onGuildLeave(GuildLeaveEvent event) {
-		File file = new File("dhcp/" + event.getGuild().getId());
-		if(file.exists()) {
-			file.delete();
-		}
+		//File file = new File("dhcp/" + event.getGuild().getId());
+		//if(file.exists()) {
+			//file.delete();
+		//}
 		ips.remove(event.getGuild());
 	}
 	@Override
@@ -251,20 +263,20 @@ public class DHCPCord extends ListenerAdapter{
 		FileWriter fw = null;
 		int x = 0;
 		String userId = member.getUser().getId();
-		File config = new File("dhcp/" + id + "/" + userId);
+		//File config = new File("dhcp/" + id + "/" + userId);
 		try {
 			while(!(getUserByIP(String.format(ipRange, (x / 255), (x % 254) + 1), ipMap) == null)) {
 				x++;
 			}
-			config.createNewFile();
-			fw = new FileWriter(config);
+			//config.createNewFile();
+			//fw = new FileWriter(config);
 			ip = String.format(ipRange, (x / 255), (x % 254) + 1);
-			fw.write(ip);
-			fw.close();
+			//fw.write(ip);
+			//fw.close();
 			ips.get(guild).put(member.getUser(), ip);
 			System.out.println("Gave IP " + ip + " to user " + member.getUser().getName() + "#" + member.getUser().getDiscriminator());
 		}
-		catch(IOException e) {
+		catch(Exception e) {
 		}
 	}
 	
@@ -352,13 +364,13 @@ public class DHCPCord extends ListenerAdapter{
 		System.out.println("Received command: " + msg);
 		if(cmd.equals("help")) {
 			channel.sendMessage(
-							"```Prefix: " + PREFIX + " | This guild is on the " + ipRange + " IP range "+ "\n\n" + 
+							"```Prefix: " + PREFIX + " | This guild is on the " + ipRange + " IP range "+ " \nAll IPs are dynamic and reset on bot restart (static IPs coming soon)\n\n" + 
 							"dhcp.help                      | summons this help menu\n" +
 							"dhcp.status                    | gets your IP address\n" +
 							"dhcp.arp <query>               | submit ARP requests\n" +
 							"dhcp.table                     | shows a list of IPs and their corresponding owners. Only works in small guilds\n" +
 							"dhcp.release <user> [users...] | kicks the given users off the network. Requires Kick Member perms.\n" +
-							"" +
+							"dhcp.macban <user>, [users...] | bans the given users from the network. Requires Ban Member perms\n" +
 							"```").queue();
 			return;
 		}
@@ -437,6 +449,9 @@ public class DHCPCord extends ListenerAdapter{
 						catch(NullPointerException e) {}
 						channel.sendMessage(toTellUser + " " + output).queue();
 					}
+					else {
+						throw new IllegalArgumentException("`has` must come after `who` keyword (`who is` coming soon)");
+					}
 				}/*
 				if(querySplit[1].equals("is") && querySplit[2].equals("at")) {
 						if(!getIPOfUser(user, ipMap).equals(querySplit[0])) {
@@ -464,7 +479,7 @@ public class DHCPCord extends ListenerAdapter{
 							if(newIp.length() < 8 || !newIp.substring(0, 2).equals(ipRange.substring(0, 2))) {
 								throw new IllegalArgumentException("IP must be on the same IP range as the guild");
 							}
-							if(!(getUserByIP(newIp, ipMap) == null) || !getUserByIP(curIp, ipMap).equals(user)){
+							if(!(getUserByIP(newIp, ipMap) == null) || getUserByIP(curIp, ipMap).equals(user)){
 								throw new ScriptException("ARP attacks are not supported (yet)");
 							}
 							if(!getIPOfUser(user, ipMap).equals(newIp)){
@@ -668,7 +683,8 @@ public class DHCPCord extends ListenerAdapter{
 		}
 		if(cmd.equals("eval")) {
 			String userId = user.getId();
-			if(userId.equals("273216249021071360")) {
+			if(OWNERS.contains(user.getId())) {
+				channel.sendMessage("Evaluating on behalf of " + user.getAsMention()).queue();
 				eval(msg, event, ipMap);
 			}
 			else {
@@ -681,14 +697,14 @@ public class DHCPCord extends ListenerAdapter{
 				return;
 			}
 			if(!msg.contains(" ")) {
-				renewIP(user, guild);
+				renewIP(user, guild, true, false);
 				channel.sendMessage("Your new IP is " + getIPOfUser(user, ips.get(guild))).queue();
 				return;
 			}
 			String ip = msg.split(" ")[1];
-			if(guild.getMember(user).hasPermission(Permission.MANAGE_SERVER) || user.getId().equals("273216249021071360")) {
+			if(guild.getMember(user).hasPermission(Permission.MANAGE_SERVER) || OWNERS.contains(user.getId())) {
 				User userToRenew = null;
-				if(user.getId().equals("273216249021071360")) {
+				if(OWNERS.contains(user.getId())) {
 					channel.sendMessage("Owner overrides activated").queue();
 				}
 				if(ip.contains(".")) {
@@ -698,7 +714,7 @@ public class DHCPCord extends ListenerAdapter{
 					userToRenew = guild.getMemberById(ip.replace("<@", "").replace(">", "")).getUser();
 				}
 				try {
-					renewIP(userToRenew, guild);
+					renewIP(userToRenew, guild, true, false);
 				}
 				catch(Exception e) {
 					channel.sendMessage("Error: " + e.getMessage()).queue();

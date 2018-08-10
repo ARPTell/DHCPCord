@@ -356,6 +356,10 @@ public class DHCPCord extends ListenerAdapter{
 		HashMap<User, String> ipMap = ips.get(guild);
 		MessageChannel channel = event.getChannel();
 		User user = event.getAuthor();
+		if(channel.getType().equals(ChannelType.PRIVATE)) {
+			channel.sendMessage("no u").queue();
+			return;
+		}
 		String ipRange = IP_RANGES_NOFORMAT[(int)(guild.getIdLong() % 2L)];
 		if(!cmd.startsWith(PREFIX)) {
 			return;
@@ -434,7 +438,7 @@ public class DHCPCord extends ListenerAdapter{
 									toTellUser = getUserByIP(toTell, ipMap).getAsMention();
 								}
 								catch(NullPointerException e) {
-									throw new IllegalArgumentException("Unregistered IP: " + toTell);
+									throw new IllegalArgumentException("Unregistered IP: `" + toTell + "`");
 								}
 								catch(IllegalArgumentException e) {
 									throw new IllegalArgumentException("an IP must come after `tell` keyword");

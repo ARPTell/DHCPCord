@@ -24,7 +24,7 @@ import java.util.Scanner;
 
 import javax.script.ScriptEngine;
 import javax.script.ScriptEngineManager;
-import javax.script.ScriptException;
+import net.arptell.dhcpcord.exceptions.ARPSyntaxException;
 
 public class DHCPCord extends ListenerAdapter{
 	
@@ -419,7 +419,7 @@ public class DHCPCord extends ListenerAdapter{
 				String[] querySplit = query.split(" ");
 				String output = "Error: IP not registered";
 				if(!(querySplit.length >= 4)){
-					throw new IllegalArgumentException("Not enough arguments");
+					throw new ARPSyntaxException("Not enough arguments");
 				}
 				//System.out.println(querySplit[0]);
 				
@@ -441,7 +441,7 @@ public class DHCPCord extends ListenerAdapter{
 									throw new IllegalArgumentException("Unregistered IP: `" + toTell + "`");
 								}
 								catch(IllegalArgumentException e) {
-									throw new IllegalArgumentException("an IP must come after `tell` keyword");
+									throw new ARPSyntaxException("an IP must come after `tell` keyword");
 								}
 							}
 						}
@@ -454,7 +454,7 @@ public class DHCPCord extends ListenerAdapter{
 						channel.sendMessage(toTellUser + " " + output).queue();
 					}
 					else {
-						throw new IllegalArgumentException("`has` must come after `who` keyword (`who is` coming soon)");
+						throw new ARPSyntaxException("`has` must come after `who` keyword (`who is` coming soon)");
 					}
 				}/*
 				if(querySplit[1].equals("is") && querySplit[2].equals("at")) {
@@ -475,7 +475,7 @@ public class DHCPCord extends ListenerAdapter{
 						}
 					channel.sendMessage(output).queue();
 				}*/
-				if(querySplit[0].matches("^(?:10\\.0|192\\.168)\\.\\d{0,3}\\.\\d{0,3}") && querySplit.length == 4){
+				else if(querySplit[0].matches("^(?:10\\.0|192\\.168)\\.\\d{0,3}\\.\\d{0,3}") && querySplit.length == 4){
 					if(querySplit[1].equals("is") && querySplit[2].equals("at")){
 						if(querySplit[3].matches("^(?:10\\.0|192\\.168)\\.\\d{0,3}\\.\\d{0,3}")){
 							String curIp = querySplit[0];
@@ -484,7 +484,7 @@ public class DHCPCord extends ListenerAdapter{
 								throw new IllegalArgumentException("IP must be on the same IP range as the guild");
 							}
 							if(!(getUserByIP(newIp, ipMap) == null) || !getUserByIP(curIp, ipMap).equals(user)){
-								throw new ScriptException("ARP attacks are not supported (yet)");
+								throw new UnsupportedOperationException("ARP attacks are not supported (yet)");
 							}
 							if(!getIPOfUser(user, ipMap).equals(newIp)){
 								ips.get(guild).put(user, newIp);
@@ -493,11 +493,14 @@ public class DHCPCord extends ListenerAdapter{
 							channel.sendMessage(user.getAsMention() + " " + curIp + " is at " + newIp).queue();
 							return;
 						} else{
-							throw new IllegalArgumentException("IP must come after `at` keyword");
+							throw new ARPSyntaxException("IP must come after `at` keyword");
 						}
 					} else {
-						throw new IllegalArgumentException("`is at <IP>` must come after IP");
+						throw new ARPSyntaxException("`is at <IP>` must come after IP");
 					}
+				}
+				else {
+					throw new ARPSyntaxException("Invalid syntax, request must start with `who` or an IP address");
 				}
 			}
 			catch(Exception e) {

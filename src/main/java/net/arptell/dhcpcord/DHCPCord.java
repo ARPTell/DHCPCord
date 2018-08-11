@@ -93,6 +93,64 @@ public class DHCPCord extends ListenerAdapter{
 	public static void main(String[] args) throws Exception {
 		new DHCPCord().run();
 	}
+	public String fixHex(String hex) {
+		if(hex.length() == 1) {
+			return "0" + hex;
+		}
+		return hex;
+	}
+	public User resolveUser(String id, JDA jda) {
+		User[] user = new User[1];
+		int i = 0;
+		System.out.println("Getting MAC...");
+		jda.retrieveUserById(id).queue((u) -> user[0] = u);
+		while(user[0] != null && i < 5) {
+			try {
+				Thread.sleep(100);
+				System.out.println("Waiting...");
+			}
+			catch(InterruptedException e) {}
+			i++;
+		}
+		return user[0];
+	}
+	public String generateMAC(User user) {
+		return generateMAC(user.getId());
+	}
+	public String generateMAC(String id) {
+		try {
+			if(Long.parseLong(id) < 0) {
+				id = Long.toString(Math.abs(Long.parseLong(id)));
+			}
+		}
+		catch(NumberFormatException e) {
+			throw new IllegalArgumentException("Invalid ID");
+		}
+		while(id.length() < 18) {
+			id = "0" + id;
+		}
+		String mac = "";
+		String[] splitId = new String[6];
+		int adder = id.length() - 18;
+		for(int i = 0; i < 6; i++) {
+			splitId[i] = id.substring(i*3 + adder, (i*3)+3 + adder);
+		}
+		if(adder > 0) {
+			adder = 0;
+			String tmp = id.substring(0, adder);
+			for(char c : tmp.toCharArray()) {
+				adder += Integer.parseInt(Character.toString(c));
+			}
+		}
+		splitId[0] = fixHex(Integer.toHexString(Integer.parseInt((splitId[0] + adder)) % 256));
+		splitId[1] = fixHex(Integer.toHexString(Integer.parseInt((splitId[1] + adder)) % 256));
+		splitId[2] = fixHex(Integer.toHexString(Integer.parseInt((splitId[2] + adder)) % 256));
+		splitId[3] = fixHex(Integer.toHexString(Integer.parseInt((splitId[3] + adder)) % 256));
+		splitId[4] = fixHex(Integer.toHexString(Integer.parseInt((splitId[4] + adder)) % 256));
+		splitId[5] = fixHex(Integer.toHexString(Integer.parseInt((splitId[5] + adder)) % 256));
+		mac = splitId[0] + ":" + splitId[1] + ":" + splitId[2] + ":" + splitId[3] + ":" + splitId[4] + ":" + splitId[5];
+		return mac.toUpperCase();
+	}
 	public String getIPOfUser(User user, HashMap<User, String> ipMap) {
 		return ipMap.get(user);
 	}
@@ -369,13 +427,18 @@ public class DHCPCord extends ListenerAdapter{
 		if(cmd.equals("help")) {
 			channel.sendMessage(
 							"```Prefix: " + PREFIX + " | This guild is on the " + ipRange + " IP range "+ " \nAll IPs are dynamic and reset on bot restart (static IPs coming soon)\n\n" + 
-							"dhcp.help                      | summons this help menu\n" +
-							"dhcp.status                    | gets your IP address\n" +
-							"dhcp.arp <query>               | submit ARP requests\n" +
-							"dhcp.table                     | shows a list of IPs and their corresponding owners. Only works in small guilds\n" +
-							"dhcp.release <user> [users...] | kicks the given users off the network. Requires Kick Member perms.\n" +
-							"dhcp.macban <user>, [users...] | bans the given users from the network. Requires Ban Member perms\n" +
-							"```").queue();
+							"dhcp.help                           | summons this help menu\n" +
+							"dhcp.status                         | gets your IP address\n" +
+							"dhcp.arp <query>                    | submit ARP requests\n" +
+							"dhcp.table                          | shows a list of IPs and their corresponding owners. Only works in small guilds\n" +
+							"dhcp.release <user> [users...]      | kicks the given users off the network. Requires Kick Member perms.\n" +
+							"dhcp.macban <user>, [users...]      | bans the given users from the network. Requires Ban Member perms\n" +
+							"dhcp.sourcequench <user> [users...] | mutes the given users. Requires Manage Roles perms\n" +
+							"dhcp.quench <user> [users...]       | alias of dhcp.sourcequench\n" +
+							"dhcp.unsourcequench <user> [users..]| unmutes the given users. Requires Manage Roles perms\n" +
+							"dhcp.unquench <user> [users...]     | alias of dhcp.unsourcequench\n" +
+							"dhcp.getmac <user>                  | gets the MAC address of the given user\n" +
+ 							"```").queue();
 			return;
 		}
 		if(cmd.equals("table")) {
@@ -402,7 +465,9 @@ public class DHCPCord extends ListenerAdapter{
 			String ip = ipMap.get(user);
 			channel.sendMessage(
 					"```This guild is on the " + ipRange + " IP range\n\n" +
-					"Your IP address is " + ip + "```").queue();
+					"Your IP address is " + ip + "\n" + 
+					"Your MAC address is " + generateMAC(user) + "\n" +
+					(user.getId().length() > 18 ? "Warning, your MAC is not gaurenteed to be unique since your user ID is larger than 18 digits" : "") +"```").queue();
 			return;
 		}
 		if(cmd.equals("arp")) {
@@ -690,7 +755,7 @@ public class DHCPCord extends ListenerAdapter{
 		}
 		if(cmd.equals("eval")) {
 			String userId = user.getId();
-			if(OWNERS.contains(user.getId())) {
+			if(OWNERS.contains(userId)) {
 				channel.sendMessage("Evaluating on behalf of " + user.getAsMention()).queue();
 				eval(msg, event, ipMap);
 			}
@@ -733,6 +798,31 @@ public class DHCPCord extends ListenerAdapter{
 			else {
 				channel.sendMessage("You are missing permissions: Manage Server").queue();
 				return;
+			}
+		}
+		if(cmd.equals("getmac")) {
+			if(!msg.contains(" ")) {
+				channel.sendMessage("dhcp.getmac [user]").queue();
+				return;
+			}
+			String id = msg.split(" ")[1];
+			id = id.replace("<@", "").replace(">","");
+			try {
+				User userGiven = null;
+				try {
+					userGiven = resolveUser(id, event.getJDA());
+				}
+				catch(Exception e) {}
+				String name = "Unknown user";
+				String discrim = "";
+				if(userGiven != null) {
+					name = userGiven.getName();
+					discrim = "#" + userGiven.getDiscriminator();
+				}
+				channel.sendMessage("MAC address for " + name + discrim + " (" + id + "): `" + generateMAC(id) + "`").queue();
+			}
+			catch(IllegalArgumentException e) {
+				channel.sendMessage("Invalid User ID").queue();
 			}
 		}
 	}

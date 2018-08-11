@@ -248,7 +248,7 @@ public class DHCPCord extends ListenerAdapter{
 			event.getChannel().sendMessage("```Usage: dhcp.eval <code>```").queue();
 			return true;
 		}
-		toEval = toEval.replaceFirst("dhcp.eval ", "").replace("“", "\"").replace("”", "\"");
+		toEval = toEval.replaceFirst("dhcp.eval ", "").replace("\u201C", "\"").replace("\u201D", "\"");
 		ScriptEngine se = new ScriptEngineManager().getEngineByName("Nashorn");
         se.put("bot", this);
         se.put("event", event);

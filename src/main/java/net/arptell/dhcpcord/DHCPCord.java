@@ -6,6 +6,7 @@ import net.dv8tion.jda.core.JDA;
 import net.dv8tion.jda.core.JDABuilder;
 //import net.dv8tion.jda.core.JDAInfo;
 import net.dv8tion.jda.core.Permission;
+import net.dv8tion.jda.core.EmbedBuilder;
 import net.dv8tion.jda.core.entities.*;
 import net.dv8tion.jda.core.events.message.MessageReceivedEvent;
 import net.dv8tion.jda.core.hooks.ListenerAdapter;
@@ -14,17 +15,22 @@ import net.dv8tion.jda.core.events.guild.GuildLeaveEvent;
 import net.dv8tion.jda.core.events.guild.member.GuildMemberJoinEvent;
 import net.dv8tion.jda.core.events.guild.member.GuildMemberLeaveEvent;
 
+import java.awt.Color;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.List;
+import java.util.ArrayList;
 import java.util.Scanner;
 
 import javax.script.ScriptEngine;
 import javax.script.ScriptEngineManager;
-import net.arptell.dhcpcord.exceptions.ARPSyntaxException;
+
+import net.arptell.dhcpcord.exceptions.*;
+import net.arptell.dhcpcord.util.*;
+import net.arptell.dhcpcord.entities.*;
 
 public class DHCPCord extends ListenerAdapter{
 	
@@ -33,6 +39,7 @@ public class DHCPCord extends ListenerAdapter{
 	private static HashMap<Guild, String> muteRoles = new HashMap<>();
 	private static final String[] IP_RANGES = {"192.168.%d.%d", "10.0.%d.%d"};
 	private static final String[] IP_RANGES_NOFORMAT = {"192.168.x.x", "10.0.x.x"};
+	private static ArrayList<TCPConnection> connections = new ArrayList<>();
 	private static final String OWNERS = "153353572711530496 273216249021071360 190544080164487168";
 	private static boolean loading = true;
 	//private static final String NUMS = "0123456789.";
@@ -60,8 +67,13 @@ public class DHCPCord extends ListenerAdapter{
 		String ipRange = "";
 		String ip = "";
 		int x = 0;
+		EmbedBuilder eb = new EmbedBuilder();
+		eb.setTitle("Test site - 127.0.0.1:80");
+		eb.addField("Hello there!", "This is a test site. Please ignore.", true);
+		eb.setColor(Color.GREEN);
 		System.out.println("Loading 'database'...");
 		for(Guild guild : guilds) {
+			connections.add(new ListeningTCPConnection("127.0.0.1", 80, guild, new Site(eb)));
 			members = guild.getMembers();
 			System.out.println("Loading IPs for " + guild.getName());
 			System.out.println("Users: " + members.size());
@@ -92,6 +104,38 @@ public class DHCPCord extends ListenerAdapter{
 	
 	public static void main(String[] args) throws Exception {
 		new DHCPCord().run();
+	}
+	public boolean connectionExists(TCPConnection conn) {
+		for(TCPConnection tcp : connections) {
+			if(tcp.equals(conn)) {
+				return true;
+			}
+		}
+		return false;
+	}
+	public boolean isListening(TCPConnection conn) {
+		return conn instanceof ListeningTCPConnection;
+	}
+	public void openPort(TCPConnection conn) throws PortBindException{
+		if(connectionExists(conn)) {
+			throw new PortBindException("Failed to bind to " + conn.getIp() + ":" + conn.getPort() + ", IP-port combination is already in use.");
+		}
+		connections.add(conn);
+	}
+	public void closePort(TCPConnection conn) throws PortCloseException{
+		if(connectionExists(conn)) {
+			connections.remove(conn);
+			return;
+		}
+		throw new PortCloseException("Failed to unbind from " + conn.getIp() + ":" + conn.getPort() + ", port is already closed");
+	}
+	public TCPConnection getConnection(String ip, int port, Guild guild) {
+		for(TCPConnection conn : connections) {
+			if(conn.equals(new ListeningTCPConnection(ip, port, guild, null))) {
+				return conn;
+			}
+		}
+		return null;
 	}
 	public String fixHex(String hex) {
 		if(hex.length() == 1) {
@@ -204,7 +248,7 @@ public class DHCPCord extends ListenerAdapter{
 			event.getChannel().sendMessage("```Usage: dhcp.eval <code>```").queue();
 			return true;
 		}
-		toEval = toEval.replaceFirst("dhcp.eval ", "").replace("“", "\"").replace("”", "\"");
+		toEval = toEval.replaceFirst("dhcp.eval ", "").replace("\u201C", "\"").replace("\u201D", "\"");
 		ScriptEngine se = new ScriptEngineManager().getEngineByName("Nashorn");
         se.put("bot", this);
         se.put("event", event);
@@ -802,7 +846,7 @@ public class DHCPCord extends ListenerAdapter{
 		}
 		if(cmd.equals("getmac")) {
 			if(!msg.contains(" ")) {
-				channel.sendMessage("dhcp.getmac [user]").queue();
+				channel.sendMessage("Usage: dhcp.getmac [user]").queue();
 				return;
 			}
 			String id = msg.split(" ")[1];
@@ -810,7 +854,16 @@ public class DHCPCord extends ListenerAdapter{
 			try {
 				User userGiven = null;
 				try {
-					userGiven = resolveUser(id, event.getJDA());
+					if(id.contains(".")) {
+						if(!ipRange.startsWith(id.substring(0,  2))) {
+							throw new IllegalArgumentException("IP must be on the same IP range as the guild");
+						}
+						userGiven = getUserByIP(id, ipMap);
+						id = userGiven.getId();
+					}
+					else {
+						userGiven = resolveUser(id, event.getJDA());
+					}
 				}
 				catch(Exception e) {}
 				String name = "Unknown user";
@@ -823,6 +876,43 @@ public class DHCPCord extends ListenerAdapter{
 			}
 			catch(IllegalArgumentException e) {
 				channel.sendMessage("Invalid User ID").queue();
+			}
+		}
+		if(cmd.equals("conn")) {
+			if(!msg.contains(" ")) {
+				channel.sendMessage("Usage: dhcp.conn <ip> <port>").queue();
+				return;
+			}
+			String ip = null;
+			int port = -1;
+			try {
+				ip = msg.split(" ")[1];
+				port = Integer.parseInt(msg.split(" ")[2]);
+			}
+			catch(Exception e) {
+				channel.sendMessage("Usage: dhcp.conn <ip> <port>").queue();
+				return;
+			}
+			try {
+				TCPConnection conn = getConnection(ip, port, guild);
+				if(conn == null) {
+					throw new PortConnectException("Unable to connect to " + ip + ":" + port + ", connection refused.");
+				}
+				Service service = ((ListeningTCPConnection)conn).getService();
+				if(service == null) {
+					throw new EmptyResponseException("No service is provided by that host");
+				}
+				if(service instanceof Site) {
+					EmbedBuilder eb = ((Site)service).getEmbed();
+					eb.setFooter("Requested by " + getIPOfUser(user, ipMap) + " (" + generateMAC(user.getId()) + ")", user.getAvatarUrl());
+					channel.sendMessage(eb.build()).queue();
+				}
+				else {
+					throw new UnknownServiceException("Unknown service: " + service);
+				}
+			}
+			catch(Exception e) {
+				channel.sendMessage("There was an error processing your request: " + e).queue();
 			}
 		}
 	}

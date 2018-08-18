@@ -40,6 +40,7 @@ public class DHCPCord extends ListenerAdapter{
 	private static final String[] IP_RANGES = {"192.168.%d.%d", "10.0.%d.%d"};
 	private static final String[] IP_RANGES_NOFORMAT = {"192.168.x.x", "10.0.x.x"};
 	private static ArrayList<TCPConnection> connections = new ArrayList<>();
+	private static ArrayList<TCPConnection> inactiveConnections = new ArrayList<>();
 	private static final String OWNERS = "153353572711530496 273216249021071360 190544080164487168";
 	private static boolean loading = true;
 	//private static final String NUMS = "0123456789.";
@@ -59,7 +60,7 @@ public class DHCPCord extends ListenerAdapter{
 	}
 
 	public void run() throws Exception {
-		Scanner sc;
+		//Scanner sc;
 		JDA jda = new JDABuilder(AccountType.BOT).setToken(token).addEventListener(this).buildBlocking();
 		jda.getPresence().setGame(Game.watching("ARP poisoning attacks happen"));
 		List<Guild> guilds = jda.getGuilds();
@@ -73,7 +74,7 @@ public class DHCPCord extends ListenerAdapter{
 		eb.setColor(Color.GREEN);
 		System.out.println("Loading 'database'...");
 		for(Guild guild : guilds) {
-			connections.add(new ListeningTCPConnection("127.0.0.1", 80, guild, new Site(eb)));
+			connections.add(new TCPConnection("127.0.0.1", 80, guild, new Site(eb)));
 			members = guild.getMembers();
 			System.out.println("Loading IPs for " + guild.getName());
 			System.out.println("Users: " + members.size());
@@ -113,9 +114,6 @@ public class DHCPCord extends ListenerAdapter{
 		}
 		return false;
 	}
-	public boolean isListening(TCPConnection conn) {
-		return conn instanceof ListeningTCPConnection;
-	}
 	public void openPort(TCPConnection conn) throws PortBindException{
 		if(connectionExists(conn)) {
 			throw new PortBindException("Failed to bind to " + conn.getIp() + ":" + conn.getPort() + ", IP-port combination is already in use.");
@@ -131,7 +129,8 @@ public class DHCPCord extends ListenerAdapter{
 	}
 	public TCPConnection getConnection(String ip, int port, Guild guild) {
 		for(TCPConnection conn : connections) {
-			if(conn.equals(new ListeningTCPConnection(ip, port, guild, null))) {
+			if(conn.equals(new TCPConnection(ip, port, guild, null))) {
+				System.out.println(conn);
 				return conn;
 			}
 		}
@@ -230,6 +229,9 @@ public class DHCPCord extends ListenerAdapter{
 		}
 		catch(Exception e){}
 	}
+	public String stripIOSQuotes(String str) {
+		return str.replace("\u201C", "\"").replace("\u201D", "\"");
+	}
 	public Role getMutedRole(Guild guild) {
 		Role muteRole = null;
 		try {
@@ -248,7 +250,7 @@ public class DHCPCord extends ListenerAdapter{
 			event.getChannel().sendMessage("```Usage: dhcp.eval <code>```").queue();
 			return true;
 		}
-		toEval = toEval.replaceFirst("dhcp.eval ", "").replace("\u201C", "\"").replace("\u201D", "\"");
+		toEval = stripIOSQuotes(toEval).replace(PREFIX + "eval ", "");
 		ScriptEngine se = new ScriptEngineManager().getEngineByName("Nashorn");
         se.put("bot", this);
         se.put("event", event);
@@ -898,9 +900,9 @@ public class DHCPCord extends ListenerAdapter{
 				if(conn == null) {
 					throw new PortConnectException("Unable to connect to " + ip + ":" + port + ", connection refused.");
 				}
-				Service service = ((ListeningTCPConnection)conn).getService();
+				Service service = conn.getService();
 				if(service == null) {
-					throw new EmptyResponseException("No service is provided by that host");
+					throw new UnknownServiceException("No service is provided by that host");
 				}
 				if(service instanceof Site) {
 					EmbedBuilder eb = ((Site)service).getEmbed();
@@ -913,6 +915,45 @@ public class DHCPCord extends ListenerAdapter{
 			}
 			catch(Exception e) {
 				channel.sendMessage("There was an error processing your request: " + e).queue();
+			}
+		}
+		if(cmd.equals("service")) {
+			if(!msg.contains(" ")) {
+				channel.sendMessage("Usage: dhcp.service <start|stop|create|delete|status> <name> [<ip> <port>]").queue();
+				return;
+			}
+			String[] request = msg.split(" ");
+			String intent = request[1];
+			try {
+				String serviceName = null;
+				try {
+					serviceName = request[2];
+				}
+				catch(ArrayIndexOutOfBoundsException e) {
+					throw new IllegalArgumentException("No service provided!");
+				}
+				if(intent.equals("create")) {
+					TCPConnection conn = null;
+					try {
+						String html = "";
+						for(int i = 4; i < request.length; i++) {
+							html += request[i] + " ";
+						}
+						System.out.println(html);
+						conn = new TCPConnection(getIPOfUser(user, ipMap), Integer.parseInt(request[3]), guild, new Site(HTMLParser.parseHTML(html)));
+					}
+					catch(ArrayIndexOutOfBoundsException | NumberFormatException e) {
+						e.printStackTrace();
+						throw new IllegalArgumentException(e.getMessage());
+					}
+					openPort(conn);
+					channel.sendMessage("Created service " + serviceName + " listening on " + getIPOfUser(user, ipMap) + ":" + request[3]).queue();
+					return;
+				}
+			}
+			catch(Exception e) {
+				channel.sendMessage("Well, that happened: " + e).queue();
+				return;
 			}
 		}
 	}

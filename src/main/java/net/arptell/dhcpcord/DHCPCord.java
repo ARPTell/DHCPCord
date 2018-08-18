@@ -681,6 +681,7 @@ public class DHCPCord extends ListenerAdapter{
 			String[] usersToBan = ids.split(" ");
 			User bannedUser = null;
 			String reason = "No reason given";
+			boolean conflict = false;
 			//boolean brk = false;
 			for(String id : usersToBan) {
 				//brk = false;
@@ -702,6 +703,32 @@ public class DHCPCord extends ListenerAdapter{
 						if(id.contains(".")) {
 							bannedUser = getUserByIP(id, ipMap);
 						}
+						else if(id.contains(":")) {
+							ArrayList<Member> membersWithMAC = new ArrayList<>();
+							for(Member member : guild.getMembers()) {
+								if(generateMAC(member.getUser()).equals(id.toUpperCase())) {
+									membersWithMAC.add(member);
+								}
+							}
+							int size = membersWithMAC.size();
+							if(size == 0) {
+								output += "No members with MAC address **" + id + "**\n";
+								continue;
+							}
+							if(size == 1) {
+								bannedUser = membersWithMAC.get(0).getUser();
+							}
+							if(size > 1) {
+								String out = "The following members have the same MAC for some reason:\n";
+								for(Member member : membersWithMAC) {
+									out += member.getUser().getName() + "#" + member.getUser().getDiscriminator() + " (" + member.getUser().getId() + ")\n";
+								}
+								out += "\nConflicting MAC: " + id;
+								channel.sendMessage(out).queue();
+								conflict = true;
+								continue;
+							}
+						}
 						else {
 							bannedUser = guild.getMemberById(id).getUser();
 						}
@@ -715,6 +742,9 @@ public class DHCPCord extends ListenerAdapter{
 				catch(Exception e) {
 					output += "Failed to ban **" + bannedUser.getName() + "#" + bannedUser.getDiscriminator() + "**: " + e.getMessage() + "\n";
 				}
+			}
+			if(conflict) {
+				output += "\nConflicting matches were not banned";
 			}
 			channel.sendMessage(output).queue();
 			return;

@@ -740,7 +740,15 @@ public class DHCPCord extends ListenerAdapter{
 					output += "Banned **" + bannedUser.getName() + "#" + bannedUser.getDiscriminator() + "**\n";
 				}
 				catch(Exception e) {
-					output += "Failed to ban **" + bannedUser.getName() + "#" + bannedUser.getDiscriminator() + "**: " + e.getMessage() + "\n";
+					if(bannedUser == null) {
+						try {
+							bannedUser = resolveUser(id, event.getJDA());
+						}
+						catch(Exception exc) {
+							
+						}
+					}
+					output += "Failed to ban **" + (bannedUser == null ? "(" + id + ")" : bannedUser.getName() + "#" + bannedUser.getDiscriminator()) + "**: " + e.getMessage() + "\n";
 				}
 			}
 			if(conflict) {
@@ -949,7 +957,7 @@ public class DHCPCord extends ListenerAdapter{
 		}
 		if(cmd.equals("service")) {
 			if(!msg.contains(" ")) {
-				channel.sendMessage("Usage: dhcp.service <start|stop|create|delete|status> <name> [<ip> <port>]").queue();
+				channel.sendMessage("Usage: dhcp.service <start|stop|create|delete|status> <name> [<port>]").queue();
 				return;
 			}
 			String[] request = msg.split(" ");
@@ -974,7 +982,7 @@ public class DHCPCord extends ListenerAdapter{
 					}
 					catch(ArrayIndexOutOfBoundsException | NumberFormatException e) {
 						e.printStackTrace();
-						throw new IllegalArgumentException(e.getMessage());
+						throw new IllegalArgumentException("`Usage: dhcp.service create <name> <port>");
 					}
 					openPort(conn);
 					channel.sendMessage("Created service " + serviceName + " listening on " + getIPOfUser(user, ipMap) + ":" + request[3]).queue();

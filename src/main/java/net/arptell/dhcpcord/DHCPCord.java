@@ -19,6 +19,7 @@ import java.awt.Color;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.math.BigInteger;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.List;
@@ -330,6 +331,16 @@ public class DHCPCord extends ListenerAdapter{
 		catch(Exception e) {
 		}
 	}
+	//TODO: hex things
+	public String stringToHex(String string) {
+		  StringBuilder buf = new StringBuilder(200);
+		  for (char ch: string.toCharArray()) {
+		    if (buf.length() > 0)
+		      buf.append(' ');
+		    buf.append(String.format("%04x", (int) ch));
+		  }
+		  return buf.toString();
+		}
 	@Override
 	public void onGuildLeave(GuildLeaveEvent event) {
 		//File file = new File("dhcp/" + event.getGuild().getId());
@@ -955,6 +966,15 @@ public class DHCPCord extends ListenerAdapter{
 				channel.sendMessage("There was an error processing your request: " + e).queue();
 			}
 		}
+		if(cmd.equals("emote")) {
+			if(!msg.contains(" ")) {
+				channel.sendMessage("Usage: dhcp.emote <emote>").queue();
+				return;
+			}
+			String emote = msg.split(" ")[1];
+			channel.sendMessage("`\\u" + stringToHex(emote).toUpperCase().replace(" ", "\\u") + "`").queue();
+			return;
+		}
 		if(cmd.equals("service")) {
 			if(!msg.contains(" ")) {
 				channel.sendMessage("Usage: dhcp.service <start|stop|create|delete|status> <name> [<port>]").queue();
@@ -993,6 +1013,10 @@ public class DHCPCord extends ListenerAdapter{
 				channel.sendMessage("Well, that happened: " + e).queue();
 				return;
 			}
+		}
+		if(cmd.equals("pingry")) {
+			channel.sendMessage("<@190544080164487168>").queue();
+			return;
 		}
 	}
 }

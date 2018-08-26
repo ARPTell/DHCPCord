@@ -6,7 +6,6 @@ import net.dv8tion.jda.core.JDA;
 import net.dv8tion.jda.core.JDABuilder;
 //import net.dv8tion.jda.core.JDAInfo;
 import net.dv8tion.jda.core.Permission;
-import net.dv8tion.jda.core.EmbedBuilder;
 import net.dv8tion.jda.core.entities.*;
 import net.dv8tion.jda.core.events.message.MessageReceivedEvent;
 import net.dv8tion.jda.core.hooks.ListenerAdapter;
@@ -19,11 +18,11 @@ import java.awt.Color;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
-import java.math.BigInteger;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.List;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Scanner;
 
 import javax.script.ScriptEngine;
@@ -107,6 +106,26 @@ public class DHCPCord extends ListenerAdapter{
 	public static void main(String[] args) throws Exception {
 		new DHCPCord().run();
 	}
+	public String getReason(String[] arr) {
+		String out = "";
+		ArrayList<String> tmp = new ArrayList<>();
+		for(int i = arr.length - 1; i >= 0; i--) {
+			try {
+				Long.parseLong(arr[i]);
+			}
+			catch(NumberFormatException e) {
+				tmp.add(arr[i]);
+			}
+		}
+		if(tmp.isEmpty()) {
+			return "No reason given";
+		}
+		Collections.reverse(tmp);
+		for(String s : tmp) {
+			out += s + " ";
+		}
+		return out;
+	}
 	public boolean connectionExists(TCPConnection conn) {
 		for(TCPConnection tcp : connections) {
 			if(tcp.equals(conn)) {
@@ -142,21 +161,6 @@ public class DHCPCord extends ListenerAdapter{
 			return "0" + hex;
 		}
 		return hex;
-	}
-	public User resolveUser(String id, JDA jda) {
-		User[] user = new User[1];
-		int i = 0;
-		System.out.println("Getting MAC...");
-		jda.retrieveUserById(id).queue((u) -> user[0] = u);
-		while(user[0] != null && i < 5) {
-			try {
-				Thread.sleep(100);
-				System.out.println("Waiting...");
-			}
-			catch(InterruptedException e) {}
-			i++;
-		}
-		return user[0];
 	}
 	public String generateMAC(User user) {
 		return generateMAC(user.getId());
@@ -646,6 +650,7 @@ public class DHCPCord extends ListenerAdapter{
 			String output = "";
 			String ids = msg.trim().toLowerCase().replaceFirst("dhcp.release","").trim();
 			String[] usersToKick = ids.split(" ");
+			String reason = getReason(usersToKick);
 			User kickedUser = null;
 			for(String id : usersToKick) {
 				try {
@@ -656,10 +661,10 @@ public class DHCPCord extends ListenerAdapter{
 						else {
 							kickedUser = guild.getMemberById(id.replace("<@", "").replace(">","")).getUser();
 						}
-						kickedUser.openPrivateChannel().queue((ch) -> ch.sendMessage("You were kicked from " + guild.getName()).queue());
+						kickedUser.openPrivateChannel().queue((ch) -> ch.sendMessage("You were kicked from " + guild.getName() + ": " + reason).queue());
 					}
 					catch(Exception e) {}
-					guild.getController().kick(guild.getMember(kickedUser)).queue();
+					guild.getController().kick(guild.getMember(kickedUser), reason).queue();
 					output += "Kicked " + kickedUser.getName() + "#" + kickedUser.getDiscriminator() + "\n";
 				}
 				catch(Exception e) {
@@ -691,7 +696,7 @@ public class DHCPCord extends ListenerAdapter{
 			String ids = msg.trim().toLowerCase().replaceFirst("dhcp.macban","").trim();
 			String[] usersToBan = ids.split(" ");
 			User bannedUser = null;
-			String reason = "No reason given";
+			String reason = getReason(usersToBan);
 			boolean conflict = false;
 			//boolean brk = false;
 			for(String id : usersToBan) {
@@ -711,6 +716,12 @@ public class DHCPCord extends ListenerAdapter{
 						if(brk) {
 							continue;
 						}*/
+						try {
+							Long.parseLong(id);
+						}
+						catch(Exception e) {
+							continue;
+						}
 						if(id.contains(".")) {
 							bannedUser = getUserByIP(id, ipMap);
 						}
@@ -741,19 +752,19 @@ public class DHCPCord extends ListenerAdapter{
 							}
 						}
 						else {
-							bannedUser = guild.getMemberById(id).getUser();
+							bannedUser = event.getJDA().retrieveUserById(id).complete();
 						}
 						String banReasonToPMBCJDAIsWeird = reason;
 						bannedUser.openPrivateChannel().queue((ch) -> ch.sendMessage("You were banned from " + guild.getName() + ": " + banReasonToPMBCJDAIsWeird).queue());
 					}
 					catch(Exception e) {}
-					guild.getController().ban(guild.getMember(bannedUser), 7, "[Banned by " + user.getName() + "#" + user.getDiscriminator() + "]: " + reason).queue();
+					guild.getController().ban(bannedUser, 7, "[Banned by " + user.getName() + "#" + user.getDiscriminator() + "]: " + reason).queue();
 					output += "Banned **" + bannedUser.getName() + "#" + bannedUser.getDiscriminator() + "**\n";
 				}
 				catch(Exception e) {
 					if(bannedUser == null) {
 						try {
-							bannedUser = resolveUser(id, event.getJDA());
+							bannedUser = event.getJDA().retrieveUserById(id).complete();
 						}
 						catch(Exception exc) {
 							
@@ -913,7 +924,7 @@ public class DHCPCord extends ListenerAdapter{
 						id = userGiven.getId();
 					}
 					else {
-						userGiven = resolveUser(id, event.getJDA());
+						userGiven = event.getJDA().retrieveUserById(id).complete();
 					}
 				}
 				catch(Exception e) {}
@@ -966,12 +977,12 @@ public class DHCPCord extends ListenerAdapter{
 				channel.sendMessage("There was an error processing your request: " + e).queue();
 			}
 		}
-		if(cmd.equals("emote")) {
+		if(cmd.equals("chars")) {
 			if(!msg.contains(" ")) {
-				channel.sendMessage("Usage: dhcp.emote <emote>").queue();
+				channel.sendMessage("Usage: dhcp.chars <string>").queue();
 				return;
 			}
-			String emote = msg.split(" ")[1];
+			String emote = msg.substring("dhcp.chars ".length());
 			channel.sendMessage("`\\u" + stringToHex(emote).toUpperCase().replace(" ", "\\u") + "`").queue();
 			return;
 		}

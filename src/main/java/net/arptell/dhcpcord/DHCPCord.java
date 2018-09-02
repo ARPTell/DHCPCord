@@ -24,6 +24,7 @@ import java.util.List;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Scanner;
+import java.util.concurrent.TimeUnit;
 
 import javax.script.ScriptEngine;
 import javax.script.ScriptEngineManager;
@@ -1027,6 +1028,15 @@ public class DHCPCord extends ListenerAdapter{
 		}
 		if(cmd.equals("pingry")) {
 			channel.sendMessage("<@190544080164487168>").queue();
+			return;
+		}
+		if(cmd.equals("despacito") && guild.getId().equals("110373943822540800")) {
+			try {
+				channel.sendMessage(guild.getRoleById("483796184083726346").getAsMention()).complete();
+				channel.sendMessage(guild.getRoleById("483796220792406017").getAsMention()).completeAfter(750L, TimeUnit.MILLISECONDS);
+				channel.sendMessage(guild.getRoleById("483796246088384512").getAsMention()).completeAfter(750L, TimeUnit.MILLISECONDS);
+			}
+			catch(Exception e) {}
 			return;
 		}
 	}

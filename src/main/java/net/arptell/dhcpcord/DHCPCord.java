@@ -565,7 +565,7 @@ public class DHCPCord extends ListenerAdapter{
 									toTellUser = getUserByIP(toTell, ipMap).getAsMention();
 								}
 								catch(NullPointerException e) {
-									throw new IllegalArgumentException("Unregistered IP: `" + toTell + "`");
+									throw new IllegalArgumentException("Unregistered IP: `" + toTell.replace("`", "") + "`");
 								}
 								catch(IllegalArgumentException e) {
 									throw new ARPSyntaxException("an IP must come after `tell` keyword");
@@ -1032,9 +1032,9 @@ public class DHCPCord extends ListenerAdapter{
 		}
 		if(cmd.equals("despacito") && guild.getId().equals("110373943822540800")) {
 			try {
-				channel.sendMessage(guild.getRoleById("483796184083726346").getAsMention()).complete();
-				channel.sendMessage(guild.getRoleById("483796220792406017").getAsMention()).completeAfter(750L, TimeUnit.MILLISECONDS);
-				channel.sendMessage(guild.getRoleById("483796246088384512").getAsMention()).completeAfter(750L, TimeUnit.MILLISECONDS);
+				channel.sendMessage("des").complete();
+				channel.sendMessage("pa").completeAfter(750L, TimeUnit.MILLISECONDS);
+				channel.sendMessage("cito").completeAfter(750L, TimeUnit.MILLISECONDS);
 			}
 			catch(Exception e) {}
 			return;

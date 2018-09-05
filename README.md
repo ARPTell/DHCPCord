@@ -16,4 +16,4 @@ You can add our official bot instance [here](https://discordapp.com/api/oauth2/a
 
 **Self-hosting**
 
-There's nothing stopping you from self-hosting, just clone the repo (or use the latest Travis build) and run the code. We recommend you use the instace we host though :)
+There's nothing stopping you from self-hosting, just clone the repo (or use the latest Travis build) and run the code. We recommend you use the instance we host though :)

@@ -55,7 +55,7 @@ public class DHCPCord extends ListenerAdapter{
 			System.err.println("Could not read token: " + e);
 			System.exit(666);
 		}
-		conn = new DHCPConnectionHandler("192.168.254.16", 47606);
+		conn = new DHCPConnectionHandler("localhost", 47606);
 	}
 
 	public void run() throws Exception {
@@ -77,6 +77,9 @@ public class DHCPCord extends ListenerAdapter{
 	
 	public static void main(String[] args) throws Exception {
 		new DHCPCord().run();
+	}
+	public DHCPConnectionHandler getConnHandler() {
+		return conn;
 	}
 	public String getReason(String[] arr) {
 		String out = "";
@@ -433,7 +436,9 @@ public class DHCPCord extends ListenerAdapter{
 			try {
 				ip = getIPOfUser(guild.getMember(user));
 			}
-			catch(Exception e) {}
+			catch(Exception e) {
+				ip = e.toString();
+			}
 			channel.sendMessage(
 					"```This guild is on the " + ipRange + " IP range\n\n" +
 					"Your IP address is " + ip + "\n" + 
@@ -1004,6 +1009,20 @@ public class DHCPCord extends ListenerAdapter{
 				channel.sendMessage("cito").completeAfter(750L, TimeUnit.MILLISECONDS);
 			}
 			catch(Exception e) {}
+			return;
+		}
+		if(cmd.equals("rawrequest")) {
+			if(OWNERS.contains(user.getId())) {
+				try {
+					channel.sendMessage(conn.makeRequest(msg.split(" ", 2)[1])).queue();
+				}
+				catch(Exception e) {
+					channel.sendMessage(e.toString()).queue();
+				}
+			}
+			else {
+				channel.sendMessage("no u").queue();
+			}
 			return;
 		}
 	}

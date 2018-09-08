@@ -50,8 +50,7 @@ public class DHCPConnectionHandler {
 		}
 		public DHCPConnectionHandler reconnect() throws Exception{
 			try {
-				makeRequest("PING");
-				return this;
+				close();
 			}
 			catch(Exception e) {}
 			return new DHCPConnectionHandler(ip, port);

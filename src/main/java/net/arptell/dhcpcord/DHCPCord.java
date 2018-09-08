@@ -4,7 +4,6 @@ import net.dv8tion.jda.core.AccountType;
 import net.dv8tion.jda.core.EmbedBuilder;
 import net.dv8tion.jda.core.JDA;
 import net.dv8tion.jda.core.JDABuilder;
-//import net.dv8tion.jda.core.JDAInfo;
 import net.dv8tion.jda.core.Permission;
 import net.dv8tion.jda.core.entities.*;
 import net.dv8tion.jda.core.events.message.MessageReceivedEvent;
@@ -17,9 +16,7 @@ import net.dv8tion.jda.core.events.guild.member.GuildMemberLeaveEvent;
 import java.awt.Color;
 import java.io.File;
 import java.io.FileWriter;
-import java.io.IOException;
 import java.util.HashMap;
-import java.util.Map;
 import java.util.List;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -30,22 +27,22 @@ import javax.script.ScriptEngine;
 import javax.script.ScriptEngineManager;
 
 import net.arptell.dhcpcord.exceptions.*;
+import net.arptell.dhcpcord.handlers.DHCPConnectionHandler;
 import net.arptell.dhcpcord.util.*;
 import net.arptell.dhcpcord.entities.*;
 
 public class DHCPCord extends ListenerAdapter{
 	
 	private static String token = "";
-	private static HashMap<Guild, HashMap<User, String>> ips = new HashMap<>();
 	private static HashMap<Guild, String> muteRoles = new HashMap<>();
-	private static final String[] IP_RANGES = {"192.168.%d.%d", "10.0.%d.%d"};
+	//private static final String[] IP_RANGES = {"192.168.%d.%d", "10.0.%d.%d"};
 	private static final String[] IP_RANGES_NOFORMAT = {"192.168.x.x", "10.0.x.x"};
 	private static ArrayList<TCPConnection> connections = new ArrayList<>();
-	private static ArrayList<TCPConnection> inactiveConnections = new ArrayList<>();
 	private static final String OWNERS = "153353572711530496 273216249021071360 190544080164487168";
+	private static DHCPConnectionHandler conn = null;
 	private static boolean loading = true;
 	//private static final String NUMS = "0123456789.";
-	private static final String PREFIX = "dhcp.";
+	private static final String PREFIX = "dhcpbeta.";
 
 	public DHCPCord() throws Exception {
 		// Constructor!
@@ -58,47 +55,21 @@ public class DHCPCord extends ListenerAdapter{
 			System.err.println("Could not read token: " + e);
 			System.exit(666);
 		}
+		conn = new DHCPConnectionHandler("192.168.254.16", 47606);
 	}
 
 	public void run() throws Exception {
 		//Scanner sc;
 		JDA jda = new JDABuilder(AccountType.BOT).setToken(token).addEventListener(this).buildBlocking();
 		jda.getPresence().setGame(Game.watching("ARP poisoning attacks happen"));
-		List<Guild> guilds = jda.getGuilds();
-		List<Member> members = null;
-		String ipRange = "";
-		String ip = "";
-		int x = 0;
 		EmbedBuilder eb = new EmbedBuilder();
 		eb.setTitle("Test site - 127.0.0.1:80");
 		eb.addField("Hello there!", "This is a test site. Please ignore.", true);
 		eb.setColor(Color.GREEN);
 		System.out.println("Loading 'database'...");
+		List<Guild> guilds = jda.getGuilds();
 		for(Guild guild : guilds) {
 			connections.add(new TCPConnection("127.0.0.1", 80, guild, new Site(eb)));
-			members = guild.getMembers();
-			System.out.println("Loading IPs for " + guild.getName());
-			System.out.println("Users: " + members.size());
-			ipRange = IP_RANGES[(int)(guild.getIdLong() % 2L)];
-			ips.put(guild, new HashMap<User, String>());
-			for(Member member : members) {
-				if(member.getUser().isBot()) {
-					continue;
-				}/*
-				try {
-					File file = new File("dhcp/" + guild.getId() + "/" + member.getUser().getId());
-					sc = new Scanner(file);
-					ips.get(guild).put(member.getUser(), sc.nextLine());
-					sc.close();
-				}
-				catch(Exception e) {
-					//e.printStackTrace();
-					renewIP(member.getUser(), guild, false);
-				}*/
-				ip = String.format(ipRange, (x / 255), (x % 254) + 1);
-				ips.get(guild).put(member.getUser(), ip);
-				x++;
-			}
 		}
 		System.out.println("Done!");
 		loading = false;
@@ -200,40 +171,17 @@ public class DHCPCord extends ListenerAdapter{
 		mac = splitId[0] + ":" + splitId[1] + ":" + splitId[2] + ":" + splitId[3] + ":" + splitId[4] + ":" + splitId[5];
 		return mac.toUpperCase();
 	}
-	public String getIPOfUser(User user, HashMap<User, String> ipMap) {
-		return ipMap.get(user);
+	public String getIPOfUser(Member member) throws Exception{
+		return conn.getIp(member);
 	}
-	public User getUserByIP(String ip, HashMap<User, String> ipMap) {
-		User user = null;
-		for(Map.Entry<User, String> ipPair : ipMap.entrySet()) {
-			if(ipPair.getValue().equals(ip)) {
-				user = ipPair.getKey();
-				break;
-			}
-		}
-		return user;
+	public User getUserByIP(String ip, Guild guild) throws Exception{
+		return guild.getJDA().getUserById(conn.getUser(guild, ip));
 	}
-	public void setUserIp(String ip, User user, Guild guild) throws IOException{
-		//File file = new File("dhcp/" + guild.getId() + "/" + user.getId());
-		//FileWriter fw = null;
-		//if(file.exists()) {
-			///file.delete();
-		//}
-		//file.createNewFile();
-		//fw = new FileWriter(file);
-		//fw.write(ip);
-		//fw.close();
-		ips.get(guild).put(user, ip);
+	public void setUserIp(String ip, Member member) throws Exception{
+		conn.setIp(member, ip);
 	}
-	public void removeUserIP(User user, Guild guild) {
-		//File file = new File("dhcp/" + guild.getId() + "/" + user.getId());
-		//if(file.exists()) {
-			//file.delete();
-		//}
-		try {
-			ips.get(guild).remove(user);
-		}
-		catch(Exception e){}
+	public void removeUserIP(Member member) throws Exception{
+		conn.releaseIp(member);
 	}
 	public String stripIOSQuotes(String str) {
 		return str.replace("\u201C", "\"").replace("\u201D", "\"");
@@ -251,7 +199,7 @@ public class DHCPCord extends ListenerAdapter{
 		}
 		return muteRole;
 	}
-	private boolean eval(String toEval, MessageReceivedEvent event, HashMap<User, String> ipMap) {
+	private boolean eval(String toEval, MessageReceivedEvent event) {
 		if(toEval.equalsIgnoreCase("dhcp.eval")) {
 			event.getChannel().sendMessage("```Usage: dhcp.eval <code>```").queue();
 			return true;
@@ -265,7 +213,6 @@ public class DHCPCord extends ListenerAdapter{
         se.put("eb", new EmbedBuilder());
         se.put("guild", event.getGuild());
         se.put("channel", event.getChannel());
-        se.put("ipMap", ipMap);
         //se.put("JDAInfo", new JDAInfo());
         String out = null;
         try
@@ -299,42 +246,15 @@ public class DHCPCord extends ListenerAdapter{
         }
         return true;
 	}
-	public void renewIP(String ip, Guild guild) {
-		renewIP(getUserByIP(ip, ips.get(guild)), guild, true, false);
+	public void renewIP(String ip, Guild guild) throws Exception{
+		renewIP(getUserByIP(ip, guild), guild);
 	}
-	public void renewIP(User user, Guild guild, boolean debug, boolean unsafe) {
-		//Member member = guild.getMember(user);
-		if(user.isBot()) {
-			return;
-		}
-		HashMap<User, String> ipMap = ips.get(guild);
-		String ipRange = IP_RANGES[(int)(guild.getIdLong() % 2L)];
-		String ip = "";
-		String id = guild.getId();
-		FileWriter fw = null;
-		int x = 0;
-		String userId = user.getId();
-		//File config = new File("dhcp/" + id + "/" + userId);
-		try {
-			if(!unsafe) {
-				while(!(getUserByIP(String.format(ipRange, (x / 255), (x % 254) + 1), ipMap) == null)) {
-					x++;
-				}
-			}
-			//if(config.exists()) {
-				//config.delete();
-			//}
-			//config.createNewFile();
-			//fw = new FileWriter(config);
-			ip = String.format(ipRange, (x / 255), (x % 254) + 1);
-			//fw.write(ip);
-			//fw.close();
-			ips.get(guild).put(user, ip);
-			if(debug)
-			System.out.println("Gave IP " + ip + " to user " + user.getName() + "#" + user.getDiscriminator());
-		}
-		catch(Exception e) {
-		}
+	public void renewIP(User user, Guild guild) throws Exception{
+		renewIp(guild.getMember(user));
+	}
+	public void renewIp(Member member) throws Exception{
+		conn.releaseIp(member);
+		conn.assignIp(member);
 	}
 	//TODO: hex things
 	public String stringToHex(String string) {
@@ -346,19 +266,33 @@ public class DHCPCord extends ListenerAdapter{
 		  }
 		  return buf.toString();
 		}
+	public int[] getGuildStats(Guild guild) {
+		int[] out = new int[3];
+		///Why map when you can do it yourself :D
+		out[0] = guild.getMembers().size();
+		for(Member m : guild.getMembers()) {
+			if(m.getUser().isBot()) {
+				out[1]++;
+			}
+			else {
+				out[2]++;
+			}
+		}
+		return out;
+	}
 	@Override
 	public void onGuildLeave(GuildLeaveEvent event) {
-		//File file = new File("dhcp/" + event.getGuild().getId());
-		//if(file.exists()) {
-			//file.delete();
-		//}
-		ips.remove(event.getGuild());
+		try {
+			conn.flush(event.getGuild());
+		}
+		catch(Exception e) {}
 	}
 	@Override
 	public void onGuildMemberLeave(GuildMemberLeaveEvent event) {
-		Guild guild = event.getGuild();
-		User user = event.getUser();
-		removeUserIP(user, guild);
+		try {
+			conn.releaseIp(event.getGuild(), event.getUser());
+		}
+		catch(Exception e) {}
 	}
 	@Override
 	public void onGuildMemberJoin(GuildMemberJoinEvent event) {
@@ -371,32 +305,17 @@ public class DHCPCord extends ListenerAdapter{
 			}
 			continue;
 		}
-		Guild guild = event.getGuild();
 		Member member = event.getMember();
 		if(member.getUser().isBot()) {
 			return;
 		}
-		HashMap<User, String> ipMap = ips.get(guild);
-		String ipRange = IP_RANGES[(int)(guild.getIdLong() % 2L)];
 		String ip = "";
-		String id = guild.getId();
-		FileWriter fw = null;
-		int x = 0;
-		String userId = member.getUser().getId();
-		//File config = new File("dhcp/" + id + "/" + userId);
 		try {
-			while(!(getUserByIP(String.format(ipRange, (x / 255), (x % 254) + 1), ipMap) == null)) {
-				x++;
-			}
-			//config.createNewFile();
-			//fw = new FileWriter(config);
-			ip = String.format(ipRange, (x / 255), (x % 254) + 1);
-			//fw.write(ip);
-			//fw.close();
-			ips.get(guild).put(member.getUser(), ip);
+			ip = conn.assignIp(member);
 			System.out.println("Gave IP " + ip + " to user " + member.getUser().getName() + "#" + member.getUser().getDiscriminator());
 		}
 		catch(Exception e) {
+			System.out.println(e);
 		}
 	}
 	
@@ -412,15 +331,10 @@ public class DHCPCord extends ListenerAdapter{
 			continue;
 		}
 		Guild guild = event.getGuild();
-		String id = guild.getId();
 		JDA jda = event.getJDA();
-		ips.put(guild, new HashMap<>());
-		File config = new File("dhcp/" + id);
-		if(!config.exists()) {
-			config.mkdirs();
-		}
 		List<Member> users = guild.getMembers();
 		int bots = 0;
+		System.out.println("Joined guild " + guild);
 		for(Member member : users) {
 			if(member.getUser().isBot()) {
 				bots++;
@@ -438,27 +352,14 @@ public class DHCPCord extends ListenerAdapter{
 		}
 		channel.sendMessage("Thank you for being a geek. Please wait while I assign IP address to all the users in the guild (this may take a while)\n" +
 							"Users to process: " + (users.size() - bots) + " (bots are not assigned IPs and are not reflected in the count. Skipping " + bots + " bots)").queue();
-		String userId = null;
-		String ipRange = IP_RANGES[(int)(guild.getIdLong() % 2L)];
-		String ip = "";
-		FileWriter fw = null;
-		int x = 0;
 		for(Member member : users) {
 			if(member.getUser().isBot()) {
 				continue;
 			}
-			userId = member.getUser().getId();
-			config = new File("dhcp/" + id + "/" + userId);
 			try {
-				config.createNewFile();
-				fw = new FileWriter(config);
-				ip = String.format(ipRange, (x / 255), (x % 254) + 1);
-				fw.write(ip);
-				fw.close();
-				ips.get(guild).put(member.getUser(), ip);
-				x++;
+				conn.assignIp(member);
 			}
-			catch(IOException e) {
+			catch(Exception e) {
 				channel.sendMessage("Warning: failed to assign IP to user " + member.getUser().getName() + "#" + member.getUser().getDiscriminator() + ": " + e).queue();
 				continue;
 			}
@@ -473,7 +374,6 @@ public class DHCPCord extends ListenerAdapter{
 		String msg = event.getMessage().getContentRaw().trim();
 		String cmd = (msg.contains(" ") ? msg.split(" ")[0].toLowerCase() : msg.toLowerCase());
 		Guild guild = event.getGuild();
-		HashMap<User, String> ipMap = ips.get(guild);
 		MessageChannel channel = event.getChannel();
 		User user = event.getAuthor();
 		if(channel.getType().equals(ChannelType.PRIVATE)) {
@@ -508,12 +408,17 @@ public class DHCPCord extends ListenerAdapter{
 				channel.sendMessage("Bot is still loading! Check back later").queue();
 				return;
 			}
-			HashMap<User, String> guildIps = ips.get(guild);
 			String table = "";
-			for(Map.Entry<User, String> entry : guildIps.entrySet()) {
-				table += entry.getKey().getName() + "#" + entry.getKey().getDiscriminator() + " - " + entry.getValue() + "\n";
+			for(Member member : guild.getMembers()) {
+				if(member.getUser().isBot()) {
+					continue;
+				}
+				try {
+					table += member.getUser().getName() + "#" + member.getUser().getDiscriminator() + " - " + getIPOfUser(member) + "\n";
+				}
+				catch(Exception e) {}
 				if(table.length() > 2000) {
-					channel.sendMessage("Read `dhcp.help` next time. Notice it says SMALL guilds (cough @Movement#2073 )").queue();
+					channel.sendMessage("Small guilds only ;)").queue();
 					return;
 				}
 			}
@@ -524,12 +429,16 @@ public class DHCPCord extends ListenerAdapter{
 				channel.sendMessage("Bot is still loading! Check back later").queue();
 				return;
 			}
-			String ip = ipMap.get(user);
+			String ip = null;
+			try {
+				ip = getIPOfUser(guild.getMember(user));
+			}
+			catch(Exception e) {}
 			channel.sendMessage(
 					"```This guild is on the " + ipRange + " IP range\n\n" +
 					"Your IP address is " + ip + "\n" + 
 					"Your MAC address is " + generateMAC(user) + "\n" +
-					(user.getId().length() > 18 ? "Warning, your MAC is not gaurenteed to be unique since your user ID is larger than 18 digits" : "") +"```").queue();
+					(user.getId().length() > 18 ? "Warning, your MAC is not guarenteed to be unique since your user ID is larger than 18 digits" : "") +"```").queue();
 			return;
 		}
 		if(cmd.equals("arp")) {
@@ -537,7 +446,7 @@ public class DHCPCord extends ListenerAdapter{
 				channel.sendMessage("Bot is still loading! Check back later").queue();
 				return;
 			}
-			String query = msg.trim().toLowerCase().replaceFirst("dhcp.arp","").trim();
+			String query = msg.trim().toLowerCase().replaceFirst(PREFIX + cmd,"").trim();
 			if(query.equals("")) {
 				channel.sendMessage("Usage: dhcp.arp <query>").queue();
 				return;
@@ -562,7 +471,7 @@ public class DHCPCord extends ListenerAdapter{
 							if(querySplit[3].equals("tell")) {
 								try {
 									toTell = querySplit[4];
-									toTellUser = getUserByIP(toTell, ipMap).getAsMention();
+									toTellUser = getUserByIP(toTell, guild).getAsMention();
 								}
 								catch(NullPointerException e) {
 									throw new IllegalArgumentException("Unregistered IP: `" + toTell.replace("`", "") + "`");
@@ -573,7 +482,7 @@ public class DHCPCord extends ListenerAdapter{
 							}
 						}
 						catch(ArrayIndexOutOfBoundsException e) {}
-						User ipUser = getUserByIP(tmpIp, ipMap);
+						User ipUser = getUserByIP(tmpIp, guild);
 						try {
 							output = (ipUser.getName() + "#" + ipUser.getDiscriminator() + " has " + tmpIp);
 						}
@@ -610,12 +519,11 @@ public class DHCPCord extends ListenerAdapter{
 							if(newIp.length() < 8 || !newIp.substring(0, 2).equals(ipRange.substring(0, 2))) {
 								throw new IllegalArgumentException("IP must be on the same IP range as the guild");
 							}
-							if(!(getUserByIP(newIp, ipMap) == null) || !getUserByIP(curIp, ipMap).equals(user)){
+							if(!(getUserByIP(newIp, guild) == null) || !getUserByIP(curIp, guild).equals(user)){
 								throw new UnsupportedOperationException("ARP attacks are not supported (yet)");
 							}
-							if(!getIPOfUser(user, ipMap).equals(newIp)){
-								ips.get(guild).put(user, newIp);
-								setUserIp(newIp, user, guild);
+							if(!getIPOfUser(guild.getMember(user)).equals(newIp)){
+								setUserIp(newIp, guild.getMember(user));
 							}
 							channel.sendMessage(user.getAsMention() + " " + curIp + " is at " + newIp).queue();
 							return;
@@ -643,13 +551,14 @@ public class DHCPCord extends ListenerAdapter{
 			//channel.sendMessage("Command not implemented (yet) - this is not a command not found message").queue();
 			if(!msg.contains(" ")) {
 				channel.sendMessage("Usage: dhcp.release <user> [users...]").queue();
+				return;
 			}
 			if(!(guild.getMember(user).hasPermission(Permission.KICK_MEMBERS) && guild.getSelfMember().hasPermission(Permission.KICK_MEMBERS))) {
 				channel.sendMessage("Missing permissions: Kick members").queue();
 				return;
 			}
 			String output = "";
-			String ids = msg.trim().toLowerCase().replaceFirst("dhcp.release","").trim();
+			String ids = msg.trim().toLowerCase().replaceFirst(PREFIX+cmd,"").trim();
 			String[] usersToKick = ids.split(" ");
 			String reason = getReason(usersToKick);
 			User kickedUser = null;
@@ -657,7 +566,7 @@ public class DHCPCord extends ListenerAdapter{
 				try {
 					try {
 						if(id.contains(".")) {
-							kickedUser = getUserByIP(id, ipMap);
+							kickedUser = getUserByIP(id, guild);
 						}
 						else {
 							kickedUser = guild.getMemberById(id.replace("<@", "").replace(">","")).getUser();
@@ -724,7 +633,7 @@ public class DHCPCord extends ListenerAdapter{
 							continue;
 						}
 						if(id.contains(".")) {
-							bannedUser = getUserByIP(id, ipMap);
+							bannedUser = getUserByIP(id, guild);
 						}
 						else if(id.contains(":")) {
 							ArrayList<Member> membersWithMAC = new ArrayList<>();
@@ -794,7 +703,7 @@ public class DHCPCord extends ListenerAdapter{
 				return;
 			}
 			String output = "";
-			String ids = msg.trim().toLowerCase().replaceFirst("dhcp.sourcequench","").replaceFirst("dhcp.quench", "").trim();
+			String ids = msg.trim().toLowerCase().replaceFirst(PREFIX+cmd,"").trim();
 			String[] usersToMute = ids.split(" ");
 			User mutedUser = null;
 			//String reason = "No reason given";
@@ -802,7 +711,7 @@ public class DHCPCord extends ListenerAdapter{
 				try {
 					try {
 						if(id.contains(".")) {
-							mutedUser = getUserByIP(id, ipMap);
+							mutedUser = getUserByIP(id, guild);
 						}
 						else {
 							mutedUser = guild.getMemberById(id).getUser();
@@ -834,7 +743,7 @@ public class DHCPCord extends ListenerAdapter{
 				return;
 			}
 			String output = "";
-			String ids = msg.trim().toLowerCase().replaceFirst("dhcp.unsourcequench","").replaceFirst("dhcp.unquench", "").trim();
+			String ids = msg.trim().toLowerCase().replaceFirst(PREFIX+cmd,"").trim();
 			String[] usersToUnmute = ids.split(" ");
 			User mutedUser = null;
 			//String reason = "No reason given";
@@ -842,7 +751,7 @@ public class DHCPCord extends ListenerAdapter{
 				try {
 					try {
 						if(id.contains(".")) {
-							mutedUser = getUserByIP(id, ipMap);
+							mutedUser = getUserByIP(id, guild);
 						}
 						else {
 							mutedUser = guild.getMemberById(id).getUser();
@@ -864,7 +773,7 @@ public class DHCPCord extends ListenerAdapter{
 			String userId = user.getId();
 			if(OWNERS.contains(userId)) {
 				channel.sendMessage("Evaluating on behalf of " + user.getAsMention()).queue();
-				eval(msg, event, ipMap);
+				eval(msg, event);
 			}
 			else {
 				channel.sendMessage("no u").queue();
@@ -875,36 +784,41 @@ public class DHCPCord extends ListenerAdapter{
 				channel.sendMessage("Bot is still loading! Check back later").queue();
 				return;
 			}
-			if(!msg.contains(" ")) {
-				renewIP(user, guild, true, false);
-				channel.sendMessage("Your new IP is " + getIPOfUser(user, ips.get(guild))).queue();
-				return;
-			}
-			String ip = msg.split(" ")[1];
-			if(guild.getMember(user).hasPermission(Permission.MANAGE_SERVER) || OWNERS.contains(user.getId())) {
-				User userToRenew = null;
-				if(OWNERS.contains(user.getId())) {
-					channel.sendMessage("Owner overrides activated").queue();
-				}
-				if(ip.contains(".")) {
-					userToRenew = getUserByIP(ip, ipMap);
-				}
-				else {
-					userToRenew = guild.getMemberById(ip.replace("<@", "").replace(">", "")).getUser();
-				}
-				try {
-					renewIP(userToRenew, guild, true, false);
-				}
-				catch(Exception e) {
-					channel.sendMessage("Error: " + e.getMessage()).queue();
+			try {
+				if(!msg.contains(" ")) {
+					renewIP(user, guild);
+					channel.sendMessage("Your new IP is " + getIPOfUser(guild.getMember(user))).queue();
 					return;
 				}
-				channel.sendMessage("Renewed IP of user " + userToRenew.getName() + "#" + userToRenew.getDiscriminator() + ".\n" +
-				"Their new IP is " + getIPOfUser(userToRenew, ips.get(guild))).queue();
+				String ip = msg.split(" ")[1];
+				if(guild.getMember(user).hasPermission(Permission.MANAGE_SERVER) || OWNERS.contains(user.getId())) {
+					User userToRenew = null;
+					if(OWNERS.contains(user.getId())) {
+						channel.sendMessage("Owner overrides activated").queue();
+					}
+					if(ip.contains(".")) {
+						userToRenew = getUserByIP(ip, guild);
+					}
+					else {
+						userToRenew = guild.getMemberById(ip.replace("<@", "").replace(">", "")).getUser();
+					}
+					try {
+						renewIP(userToRenew, guild);
+					}
+					catch(Exception e) {
+						channel.sendMessage("Error: " + e.getMessage()).queue();
+						return;
+					}
+					channel.sendMessage("Renewed IP of user " + userToRenew.getName() + "#" + userToRenew.getDiscriminator() + ".\n" +
+					"Their new IP is " + getIPOfUser(guild.getMember(user))).queue();
+				}
+				else {
+					channel.sendMessage("You are missing permissions: Manage Server").queue();
+					return;
+				}
 			}
-			else {
-				channel.sendMessage("You are missing permissions: Manage Server").queue();
-				return;
+			catch(Exception e) {
+				channel.sendMessage("An error occured while processing your request:\n" + e);
 			}
 		}
 		if(cmd.equals("getmac")) {
@@ -921,7 +835,7 @@ public class DHCPCord extends ListenerAdapter{
 						if(!ipRange.startsWith(id.substring(0,  2))) {
 							throw new IllegalArgumentException("IP must be on the same IP range as the guild");
 						}
-						userGiven = getUserByIP(id, ipMap);
+						userGiven = getUserByIP(id, guild);
 						id = userGiven.getId();
 					}
 					else {
@@ -967,7 +881,7 @@ public class DHCPCord extends ListenerAdapter{
 				}
 				if(service instanceof Site) {
 					EmbedBuilder eb = ((Site)service).getEmbed();
-					eb.setFooter("Requested by " + getIPOfUser(user, ipMap) + " (" + generateMAC(user.getId()) + ")", user.getAvatarUrl());
+					eb.setFooter("Requested by " + getIPOfUser(guild.getMember(user)) + " (" + generateMAC(user.getId()) + ")", user.getAvatarUrl());
 					channel.sendMessage(eb.build()).queue();
 				}
 				else {
@@ -983,7 +897,7 @@ public class DHCPCord extends ListenerAdapter{
 				channel.sendMessage("Usage: dhcp.chars <string>").queue();
 				return;
 			}
-			String emote = msg.substring("dhcp.chars ".length());
+			String emote = msg.substring((PREFIX+cmd).length());
 			channel.sendMessage("`\\u" + stringToHex(emote).toUpperCase().replace(" ", "\\u") + "`").queue();
 			return;
 		}
@@ -1010,20 +924,47 @@ public class DHCPCord extends ListenerAdapter{
 							html += request[i] + " ";
 						}
 						System.out.println(html);
-						conn = new TCPConnection(getIPOfUser(user, ipMap), Integer.parseInt(request[3]), guild, new Site(HTMLParser.parseHTML(html)));
+						conn = new TCPConnection(getIPOfUser(guild.getMember(user)), Integer.parseInt(request[3]), guild, new Site(HTMLParser.parseHTML(html)));
 					}
 					catch(ArrayIndexOutOfBoundsException | NumberFormatException e) {
 						e.printStackTrace();
 						throw new IllegalArgumentException("`Usage: dhcp.service create <name> <port>");
 					}
 					openPort(conn);
-					channel.sendMessage("Created service " + serviceName + " listening on " + getIPOfUser(user, ipMap) + ":" + request[3]).queue();
+					channel.sendMessage("Created service " + serviceName + " listening on " + getIPOfUser(guild.getMember(user)) + ":" + request[3]).queue();
 					return;
 				}
 			}
 			catch(Exception e) {
 				channel.sendMessage("Well, that happened: " + e).queue();
 				return;
+			}
+		}
+		if(cmd.equals("flush")) {
+			if(OWNERS.contains(user.getId())) {
+				channel.sendMessage("Attempting to flush IP registry for guild " + guild.getName() + " (" + guild.getId() + ")...").queue();
+				try {
+					conn.flush(guild);
+					channel.sendMessage("Done! Cleared cache for " + getGuildStats(guild)[2] + " users.").queue();
+				}
+				catch(Exception e) {
+					channel.sendMessage("Failed to flush this guild!\n" + e).queue();
+				}
+			}
+			else {
+				channel.sendMessage("\\*Toilet flushing noises\\*").queue();
+			}
+			return;
+		}
+		if(cmd.equals("reconnect")) {
+			if(OWNERS.contains(user.getId())) {
+				try {
+					conn = conn.reconnect();
+					channel.sendMessage("Session resumed successfully!").queue();
+				}
+				catch(Exception e) {
+					channel.sendMessage("Failed to reconnect to server!\n" + e).queue();
+				}
 			}
 		}
 		if(cmd.equals("pingry")) {

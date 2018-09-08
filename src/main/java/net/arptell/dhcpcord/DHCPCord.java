@@ -42,7 +42,7 @@ public class DHCPCord extends ListenerAdapter{
 	private static DHCPConnectionHandler conn = null;
 	private static boolean loading = true;
 	//private static final String NUMS = "0123456789.";
-	private static final String PREFIX = "dhcpbeta.";
+	private static final String PREFIX = "dhcp.";
 
 	public DHCPCord() throws Exception {
 		// Constructor!
@@ -953,6 +953,32 @@ public class DHCPCord extends ListenerAdapter{
 			}
 			else {
 				channel.sendMessage("\\*Toilet flushing noises\\*").queue();
+			}
+			return;
+		}
+		if(cmd.equals("fakerejoin")) {
+			if(OWNERS.contains(user.getId())) {
+				int[] stats = getGuildStats(guild);
+				String users = "";
+				channel.sendMessage("Alright, flushing tables and reassigning IPs to all users in this guild. Processing " + stats[2] + " users and ignoring " + stats[1] + " bots...").queue();
+				try {
+					conn.flush(guild);
+					for(Member member : guild.getMembers()) {
+						if(member.getUser().isBot()) {
+							continue;
+						}
+						users += member.getUser().getId() + ",";
+					}
+					users = users.substring(0, users.length() - 1);
+					conn.makeRequest("ASSIGNBULK IP " + guild.getId() + " " + users);
+					channel.sendMessage("Finished!").queue();
+				}
+				catch(Exception e) {
+					channel.sendMessage(e.toString()).queue();
+				}
+			}
+			else {
+				channel.sendMessage(":eyes: no u").queue();
 			}
 			return;
 		}

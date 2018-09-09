@@ -335,10 +335,10 @@ public class DHCPCord extends ListenerAdapter{
 		}
 		Guild guild = event.getGuild();
 		JDA jda = event.getJDA();
-		List<Member> users = guild.getMembers();
+		List<Member> members = guild.getMembers();
 		int bots = 0;
 		System.out.println("Joined guild " + guild);
-		for(Member member : users) {
+		for(Member member : members) {
 			if(member.getUser().isBot()) {
 				bots++;
 			}
@@ -354,20 +354,22 @@ public class DHCPCord extends ListenerAdapter{
 			channel = jda.getGuildById("293722203373961218").getTextChannelById("476035974715932673");
 		}
 		channel.sendMessage("Thank you for being a geek. Please wait while I assign IP address to all the users in the guild (this may take a while)\n" +
-							"Users to process: " + (users.size() - bots) + " (bots are not assigned IPs and are not reflected in the count. Skipping " + bots + " bots)").queue();
-		for(Member member : users) {
+							"Users to process: " + (members.size() - bots) + " (bots are not assigned IPs and are not reflected in the count. Skipping " + bots + " bots)").queue();
+		String users = "";
+		for(Member member : members) {
 			if(member.getUser().isBot()) {
 				continue;
 			}
-			try {
-				conn.assignIp(member);
-			}
-			catch(Exception e) {
-				channel.sendMessage("Warning: failed to assign IP to user " + member.getUser().getName() + "#" + member.getUser().getDiscriminator() + ": " + e).queue();
-				continue;
-			}
+			users += member.getUser().getId() + ",";
 		}
-		channel.sendMessage("IP assignment complete! Users may now view their IP with `dhcp.status`").queue();
+		users = users.substring(0, users.length() - 1);
+		try {
+			conn.makeRequest("ASSIGNBULK IP " + guild.getId() + " " + users);
+			channel.sendMessage("IP assignment complete! Users may now view their IP with `dhcp.status`").queue();
+		}
+		catch(Exception e) {
+			channel.sendMessage("Failed to assign IPs: " + e).queue();
+		}
 	}
 	@Override
 	public void onMessageReceived(MessageReceivedEvent event) {
@@ -433,17 +435,19 @@ public class DHCPCord extends ListenerAdapter{
 				return;
 			}
 			String ip = null;
+			boolean errored = false;
 			try {
 				ip = getIPOfUser(guild.getMember(user));
 			}
 			catch(Exception e) {
 				ip = e.toString();
+				errored = true;
 			}
 			channel.sendMessage(
 					"```This guild is on the " + ipRange + " IP range\n\n" +
 					"Your IP address is " + ip + "\n" + 
 					"Your MAC address is " + generateMAC(user) + "\n" +
-					(user.getId().length() > 18 ? "Warning, your MAC is not guarenteed to be unique since your user ID is larger than 18 digits" : "") +"```").queue();
+					(user.getId().length() > 18 ? "Warning, your MAC is not guarenteed to be unique since your user ID is larger than 18 digits" : "") +(errored ? "\n\nAn error occured while looking up your IP address. Have a user with Manage Server permissions run the dhcp.fakerejoin command." : "") + "```").queue();
 			return;
 		}
 		if(cmd.equals("arp")) {
@@ -962,7 +966,7 @@ public class DHCPCord extends ListenerAdapter{
 			return;
 		}
 		if(cmd.equals("fakerejoin")) {
-			if(OWNERS.contains(user.getId())) {
+			if(OWNERS.contains(user.getId()) || guild.getMember(user).hasPermission(Permission.MANAGE_SERVER)) {
 				int[] stats = getGuildStats(guild);
 				String users = "";
 				channel.sendMessage("Alright, flushing tables and reassigning IPs to all users in this guild. Processing " + stats[2] + " users and ignoring " + stats[1] + " bots...").queue();

@@ -906,7 +906,7 @@ public class DHCPCord extends ListenerAdapter{
 				channel.sendMessage("Usage: dhcp.chars <string>").queue();
 				return;
 			}
-			String emote = msg.substring((PREFIX+cmd).length());
+			String emote = msg.split(" ", 2)[1];
 			channel.sendMessage("`\\u" + stringToHex(emote).toUpperCase().replace(" ", "\\u") + "`").queue();
 			return;
 		}
@@ -1017,8 +1017,39 @@ public class DHCPCord extends ListenerAdapter{
 		}
 		if(cmd.equals("rawrequest")) {
 			if(OWNERS.contains(user.getId())) {
+				if(!msg.contains(" ")) {
+					channel.sendMessage("Usage: " + PREFIX + cmd + " <request>\nA \"full\" syntax can be found by using the command `" + PREFIX + "syntaxref`").queue();
+					return;
+				}
 				try {
-					channel.sendMessage(conn.makeRequest(msg.split(" ", 2)[1])).queue();
+					channel.sendMessage(conn.makeRequest(msg.split(" ", 2)[1].replace("{guild}", guild.getId()).replace("{user}", user.getId()))).queue();
+				}
+				catch(Exception e) {
+					channel.sendMessage(e.toString()).queue();
+				}
+			}
+			else {
+				channel.sendMessage("no u").queue();
+			}
+			return;
+		}
+		if(cmd.equals("syntaxref")) {
+			File ref = new File("dhcpsyntaxref.txt");
+			if(!ref.exists() || ref.isDirectory()) {
+				channel.sendMessage("Syntax reference file not found!").queue();
+				return;
+			}
+			channel.sendFile(ref).queue();
+			return;
+		}
+		if(cmd.equals("servereval")) {
+			if(OWNERS.contains(user.getId())) {
+				if(!msg.contains(" ")) {
+					channel.sendMessage("Usage: " + PREFIX + cmd + " <code>").queue();
+					return;
+				}
+				try {
+					channel.sendMessage(conn.makeRequest("EVAL " + (msg.split(" ", 2)[1]))).queue();
 				}
 				catch(Exception e) {
 					channel.sendMessage(e.toString()).queue();

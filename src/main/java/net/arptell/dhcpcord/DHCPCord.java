@@ -591,7 +591,7 @@ public class DHCPCord extends ListenerAdapter{
 						output += "Failed to kick **" + kickedUser.getName() + "#" + kickedUser.getDiscriminator() + "**: " + e.getMessage() + "\n";
 					}
 					else {
-						output += "Failed to kick **" + id + "**: User not in guild";
+						output += "Failed to kick **" + id + "**: User not in guild\n";
 					}
 				}
 			}

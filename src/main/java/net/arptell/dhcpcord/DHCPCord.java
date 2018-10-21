@@ -819,7 +819,7 @@ public class DHCPCord extends ListenerAdapter{
 						return;
 					}
 					channel.sendMessage("Renewed IP of user " + userToRenew.getName() + "#" + userToRenew.getDiscriminator() + ".\n" +
-					"Their new IP is " + getIPOfUser(guild.getMember(user))).queue();
+					"Their new IP is " + getIPOfUser(guild.getMember(userToRenew))).queue();
 				}
 				else {
 					channel.sendMessage("You are missing permissions: Manage Server").queue();
@@ -965,7 +965,7 @@ public class DHCPCord extends ListenerAdapter{
 			}
 			return;
 		}
-		if(cmd.equals("fakerejoin")) {
+		if(cmd.equals("clear")) {
 			if(OWNERS.contains(user.getId()) || guild.getMember(user).hasPermission(Permission.MANAGE_SERVER)) {
 				int[] stats = getGuildStats(guild);
 				String users = "";
@@ -1040,24 +1040,6 @@ public class DHCPCord extends ListenerAdapter{
 				return;
 			}
 			channel.sendFile(ref).queue();
-			return;
-		}
-		if(cmd.equals("servereval")) {
-			if(OWNERS.contains(user.getId())) {
-				if(!msg.contains(" ")) {
-					channel.sendMessage("Usage: " + PREFIX + cmd + " <code>").queue();
-					return;
-				}
-				try {
-					channel.sendMessage(conn.makeRequest("EVAL " + (msg.split(" ", 2)[1]))).queue();
-				}
-				catch(Exception e) {
-					channel.sendMessage(e.toString()).queue();
-				}
-			}
-			else {
-				channel.sendMessage("no u").queue();
-			}
 			return;
 		}
 	}

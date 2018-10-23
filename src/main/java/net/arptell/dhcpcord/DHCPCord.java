@@ -1,6 +1,5 @@
 package net.arptell.dhcpcord;
 
-import net.dv8tion.jda.core.AccountType;
 import net.dv8tion.jda.core.EmbedBuilder;
 import net.dv8tion.jda.core.JDA;
 import net.dv8tion.jda.core.JDABuilder;
@@ -13,9 +12,9 @@ import net.dv8tion.jda.core.events.guild.GuildLeaveEvent;
 import net.dv8tion.jda.core.events.guild.member.GuildMemberJoinEvent;
 import net.dv8tion.jda.core.events.guild.member.GuildMemberLeaveEvent;
 
-import java.awt.Color;
 import java.io.File;
 import java.io.FileWriter;
+import java.io.InputStream;
 import java.util.HashMap;
 import java.util.List;
 import java.util.ArrayList;
@@ -26,6 +25,8 @@ import java.util.concurrent.TimeUnit;
 import javax.script.ScriptEngine;
 import javax.script.ScriptEngineManager;
 
+import org.json.*;
+
 import net.arptell.dhcpcord.exceptions.*;
 import net.arptell.dhcpcord.handlers.DHCPConnectionHandler;
 import net.arptell.dhcpcord.util.*;
@@ -35,13 +36,11 @@ public class DHCPCord extends ListenerAdapter{
 	
 	private static String token = "";
 	private static HashMap<Guild, String> muteRoles = new HashMap<>();
-	//private static final String[] IP_RANGES = {"192.168.%d.%d", "10.0.%d.%d"};
 	private static final String[] IP_RANGES_NOFORMAT = {"192.168.x.x", "10.0.x.x"};
-	private static ArrayList<TCPConnection> connections = new ArrayList<>();
 	private static final String OWNERS = "153353572711530496 273216249021071360 190544080164487168";
 	private static DHCPConnectionHandler conn = null;
 	private static boolean loading = true;
-	//private static final String NUMS = "0123456789.";
+	private static EntityBuilder entityBuilder;
 	private static final String PREFIX = "dhcp.";
 
 	public DHCPCord() throws Exception {
@@ -59,18 +58,9 @@ public class DHCPCord extends ListenerAdapter{
 	}
 
 	public void run() throws Exception {
-		//Scanner sc;
-		JDA jda = new JDABuilder(AccountType.BOT).setToken(token).addEventListener(this).buildBlocking();
+		JDA jda = new JDABuilder(token).addEventListener(this).build().awaitReady();
 		jda.getPresence().setGame(Game.watching("ARP poisoning attacks happen"));
-		EmbedBuilder eb = new EmbedBuilder();
-		eb.setTitle("Test site - 127.0.0.1:80");
-		eb.addField("Hello there!", "This is a test site. Please ignore.", true);
-		eb.setColor(Color.GREEN);
-		System.out.println("Loading 'database'...");
-		List<Guild> guilds = jda.getGuilds();
-		for(Guild guild : guilds) {
-			connections.add(new TCPConnection("127.0.0.1", 80, guild, new Site(eb)));
-		}
+		entityBuilder = new EntityBuilder(jda);
 		System.out.println("Done!");
 		loading = false;
 	}
@@ -100,36 +90,6 @@ public class DHCPCord extends ListenerAdapter{
 			out += s + " ";
 		}
 		return out;
-	}
-	public boolean connectionExists(TCPConnection conn) {
-		for(TCPConnection tcp : connections) {
-			if(tcp.equals(conn)) {
-				return true;
-			}
-		}
-		return false;
-	}
-	public void openPort(TCPConnection conn) throws PortBindException{
-		if(connectionExists(conn)) {
-			throw new PortBindException("Failed to bind to " + conn.getIp() + ":" + conn.getPort() + ", IP-port combination is already in use.");
-		}
-		connections.add(conn);
-	}
-	public void closePort(TCPConnection conn) throws PortCloseException{
-		if(connectionExists(conn)) {
-			connections.remove(conn);
-			return;
-		}
-		throw new PortCloseException("Failed to unbind from " + conn.getIp() + ":" + conn.getPort() + ", port is already closed");
-	}
-	public TCPConnection getConnection(String ip, int port, Guild guild) {
-		for(TCPConnection conn : connections) {
-			if(conn.equals(new TCPConnection(ip, port, guild, null))) {
-				System.out.println(conn);
-				return conn;
-			}
-		}
-		return null;
 	}
 	public String fixHex(String hex) {
 		if(hex.length() == 1) {
@@ -836,7 +796,7 @@ public class DHCPCord extends ListenerAdapter{
 				return;
 			}
 			String id = msg.split(" ")[1];
-			id = id.replace("<@", "").replace(">","");
+			id = id.replace("<@", "").replace("!",  "").replace(">","");
 			try {
 				User userGiven = null;
 				try {
@@ -880,11 +840,17 @@ public class DHCPCord extends ListenerAdapter{
 				return;
 			}
 			try {
-				TCPConnection conn = getConnection(ip, port, guild);
-				if(conn == null) {
-					throw new PortConnectException("Unable to connect to " + ip + ":" + port + ", connection refused.");
+				TCPConnection connection = null;
+				String json = null;
+				try {
+					json = conn.getService(ip, port, guild);
 				}
-				Service service = conn.getService();
+				catch(Exception e) {
+					throw new PortConnectException("Connection refused");
+				}
+				MessageEmbed site = new EntityBuilder(event.getJDA()).createMessageEmbed(new JSONObject(json));
+				connection = new TCPConnection(ip, port, guild, new Site(new EmbedBuilder(site)));
+				Service service = connection.getService();
 				if(service == null) {
 					throw new UnknownServiceException("No service is provided by that host");
 				}
@@ -912,7 +878,7 @@ public class DHCPCord extends ListenerAdapter{
 		}
 		if(cmd.equals("service")) {
 			if(!msg.contains(" ")) {
-				channel.sendMessage("Usage: dhcp.service <start|stop|create|delete|status> <name> [<port>]").queue();
+				channel.sendMessage("Usage: dhcp.service <start|stop|create|delete|status> <name> <port>").queue();
 				return;
 			}
 			String[] request = msg.split(" ");
@@ -926,20 +892,42 @@ public class DHCPCord extends ListenerAdapter{
 					throw new IllegalArgumentException("No service provided!");
 				}
 				if(intent.equals("create")) {
-					TCPConnection conn = null;
+					TCPConnection connection = null;
 					try {
-						String html = "";
-						for(int i = 4; i < request.length; i++) {
-							html += request[i] + " ";
+						String json = "";
+						if(event.getMessage().getAttachments().isEmpty()) {
+							json = msg.split(" ", 4)[3];
 						}
-						System.out.println(html);
-						conn = new TCPConnection(getIPOfUser(guild.getMember(user)), Integer.parseInt(request[3]), guild, new Site(HTMLParser.parseHTML(html)));
+						else {
+							Message.Attachment attachment = event.getMessage().getAttachments().get(0);
+							if(!attachment.getFileName().toLowerCase().endsWith(".json")) {
+								throw new IllegalArgumentException("Provided file must have a name ending in `.json`");
+							}
+							if(attachment.isImage()) {
+								throw new IllegalArgumentException("Provided file must be a valid JSON file, not an image");
+							}
+							InputStream stream = attachment.getInputStream();
+							while(stream.available() > 0) {
+								json += (char)stream.read();
+							}
+							stream.close();
+						}
+						if(!json.startsWith("{") || !json.endsWith("}")) {
+							throw new IllegalArgumentException("Provided input must be valid JSON");
+						}
+						JSONObject jsonObj = new JSONObject(json);
+						connection = new TCPConnection(getIPOfUser(guild.getMember(user)), Integer.parseInt(request[3]), guild, new Site(jsonObj, entityBuilder, serviceName));
 					}
 					catch(ArrayIndexOutOfBoundsException | NumberFormatException e) {
 						e.printStackTrace();
-						throw new IllegalArgumentException("`Usage: dhcp.service create <name> <port>");
+						channel.sendMessage("`Usage: dhcp.service create <name> <port> <json>").queue();
+						return;
 					}
-					openPort(conn);
+					catch(JSONException e) {
+						channel.sendMessage("Invalid JSON file: " + e.getMessage());
+						return;
+					}
+					conn.createService(connection);
 					channel.sendMessage("Created service " + serviceName + " listening on " + getIPOfUser(guild.getMember(user)) + ":" + request[3]).queue();
 					return;
 				}

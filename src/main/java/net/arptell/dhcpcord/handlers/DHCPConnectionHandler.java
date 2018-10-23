@@ -1,12 +1,15 @@
 package net.arptell.dhcpcord.handlers;
 
 import net.arptell.dhcpcord.exceptions.*;
+import net.arptell.dhcpcord.util.TCPConnection;
 
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.*;
+
+import org.json.JSONObject;
 
 import net.dv8tion.jda.core.entities.*;
 
@@ -79,6 +82,15 @@ public class DHCPConnectionHandler {
 		}
 		public void flush(Guild guild) throws Exception{
 			makeRequest("FLUSH IP " + guild.getId() + " filler");
+		}
+		public String getService(String ip, int port, Guild guild) throws Exception{
+			return makeRequest("GET SERVICE " + guild.getId() + " " + ip + ":" + port);
+		}
+		public void createService(TCPConnection conn) throws Exception{
+			createService(conn.getIp(), conn.getPort(), conn.getGuild(), conn.getService().getJSON());
+		}
+		public void createService(String ip, int port, Guild guild, JSONObject json) throws Exception{
+			makeRequest("SET SERVICE " + guild.getId() + " " + getUser(guild, ip) + " " + (json.has("title") ? json.getString("title") : "Untitled " + json.hashCode()) + " " + json);
 		}
 		private String checkForException(String s) throws Exception{
 			System.out.println(s);

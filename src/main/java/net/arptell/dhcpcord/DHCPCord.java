@@ -878,7 +878,7 @@ public class DHCPCord extends ListenerAdapter{
 		}
 		if(cmd.equals("service")) {
 			if(!msg.contains(" ")) {
-				channel.sendMessage("Usage: dhcp.service <start|stop|create|delete|status> <name> <port>").queue();
+				channel.sendMessage("Usage: dhcp.service <create|delete|status> <name> <port> [json]").queue();
 				return;
 			}
 			String[] request = msg.split(" ");
@@ -930,6 +930,9 @@ public class DHCPCord extends ListenerAdapter{
 					conn.createService(connection);
 					channel.sendMessage("Created service " + serviceName + " listening on " + getIPOfUser(guild.getMember(user)) + ":" + request[3]).queue();
 					return;
+				}
+				else if(intent.equals("delete")) {
+					conn.deleteService(user.getId(), 0, guild);
 				}
 			}
 			catch(Exception e) {

@@ -90,7 +90,13 @@ public class DHCPConnectionHandler {
 			createService(conn.getIp(), conn.getPort(), conn.getGuild(), conn.getService().getJSON());
 		}
 		public void createService(String ip, int port, Guild guild, JSONObject json) throws Exception{
-			makeRequest("SET SERVICE " + guild.getId() + " " + getUser(guild, ip) + " " + (json.has("title") ? json.getString("title") : "Untitled " + json.hashCode()) + " " + json);
+			makeRequest("SET SERVICE " + guild.getId() + " " + getUser(guild, ip) + " " + (json.has("title") ? json.getString("title") : "Untitled " + json.hashCode()) + " " + port + " " + json);
+		}
+		public void deleteService(String user, int port, Guild guild) throws Exception{
+			if(user.contains(".")) {
+				user = getUser(guild, user);
+			}
+			makeRequest("RELEASE SERVICE " + guild.getId() + " " + user + " " + port);
 		}
 		private String checkForException(String s) throws Exception{
 			System.out.println(s);

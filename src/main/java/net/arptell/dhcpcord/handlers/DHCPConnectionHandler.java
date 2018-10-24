@@ -84,13 +84,22 @@ public class DHCPConnectionHandler {
 			makeRequest("FLUSH IP " + guild.getId() + " filler");
 		}
 		public String getService(String ip, int port, Guild guild) throws Exception{
-			return makeRequest("GET SERVICE " + guild.getId() + " " + ip + ":" + port);
+			return makeRequest("GET SERVICE " + guild.getId() + " " + ip + " " + port);
+		}
+		public int getServicePort(String user, String name, Guild guild) throws Exception{
+			if(user.contains(".")){
+				user = getUser(guild, user);
+			}
+			return Integer.parseInt(makeRequest("GET PORT " + guild.getId() + " " + getUser(guild, user) + " " + name));
 		}
 		public void createService(TCPConnection conn) throws Exception{
 			createService(conn.getIp(), conn.getPort(), conn.getGuild(), conn.getService().getJSON());
 		}
-		public void createService(String ip, int port, Guild guild, JSONObject json) throws Exception{
-			makeRequest("SET SERVICE " + guild.getId() + " " + getUser(guild, ip) + " " + (json.has("title") ? json.getString("title") : "Untitled " + json.hashCode()) + " " + port + " " + json);
+		public void createService(String user, int port, Guild guild, JSONObject json) throws Exception{
+			if(user.contains(".")){
+				user = getUser(guild, user);
+			}
+			makeRequest("SET SERVICE " + guild.getId() + " " + user + " " + (json.has("title") ? json.getString("title") : "Untitled-" + json.hashCode()) + " " + port + " " + json.toString().replace("\n", "").replace("\\n", ""));
 		}
 		public void deleteService(String user, int port, Guild guild) throws Exception{
 			if(user.contains(".")) {

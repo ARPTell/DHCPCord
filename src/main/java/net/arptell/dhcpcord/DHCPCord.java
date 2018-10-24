@@ -29,8 +29,6 @@ import org.json.*;
 
 import net.arptell.dhcpcord.exceptions.*;
 import net.arptell.dhcpcord.handlers.DHCPConnectionHandler;
-import net.arptell.dhcpcord.util.*;
-import net.arptell.dhcpcord.entities.*;
 
 public class DHCPCord extends ListenerAdapter{
 	
@@ -40,7 +38,6 @@ public class DHCPCord extends ListenerAdapter{
 	private static final String OWNERS = "153353572711530496 273216249021071360 190544080164487168";
 	private static DHCPConnectionHandler conn = null;
 	private static boolean loading = true;
-	private static EntityBuilder entityBuilder;
 	private static final String PREFIX = "dhcp.";
 
 	public DHCPCord() throws Exception {
@@ -60,7 +57,6 @@ public class DHCPCord extends ListenerAdapter{
 	public void run() throws Exception {
 		JDA jda = new JDABuilder(token).addEventListener(this).build().awaitReady();
 		jda.getPresence().setGame(Game.watching("ARP poisoning attacks happen"));
-		entityBuilder = new EntityBuilder(jda);
 		System.out.println("Done!");
 		loading = false;
 	}
@@ -840,7 +836,6 @@ public class DHCPCord extends ListenerAdapter{
 				return;
 			}
 			try {
-				TCPConnection connection = null;
 				String json = null;
 				try {
 					json = conn.getService(ip, port, guild);
@@ -848,20 +843,15 @@ public class DHCPCord extends ListenerAdapter{
 				catch(Exception e) {
 					throw new PortConnectException("Connection refused");
 				}
-				MessageEmbed site = new EntityBuilder(event.getJDA()).createMessageEmbed(new JSONObject(json));
-				connection = new TCPConnection(ip, port, guild, new Site(new EmbedBuilder(site)));
-				Service service = connection.getService();
-				if(service == null) {
-					throw new UnknownServiceException("No service is provided by that host");
+				JSONObject jsonObj = new JSONObject(json);
+				if(!jsonObj.has("type")){
+					//The entity builder throws an exception if this key is missing 
+					jsonObj.put("type", "");
 				}
-				if(service instanceof Site) {
-					EmbedBuilder eb = ((Site)service).getEmbed();
-					eb.setFooter("Requested by " + getIPOfUser(guild.getMember(user)) + " (" + generateMAC(user.getId()) + ")", user.getAvatarUrl());
-					channel.sendMessage(eb.build()).queue();
-				}
-				else {
-					throw new UnknownServiceException("Unknown service: " + service);
-				}
+				MessageEmbed site = new EntityBuilder(event.getJDA()).createMessageEmbed(jsonObj);
+				EmbedBuilder eb = new EmbedBuilder(site);
+				eb.setFooter("Requested by " + getIPOfUser(guild.getMember(user)) + " (" + generateMAC(user.getId()) + ")", user.getAvatarUrl());
+				channel.sendMessage(eb.build()).queue();
 			}
 			catch(Exception e) {
 				channel.sendMessage("There was an error processing your request: " + e).queue();
@@ -892,11 +882,10 @@ public class DHCPCord extends ListenerAdapter{
 					throw new IllegalArgumentException("No service provided!");
 				}
 				if(intent.equals("create")) {
-					TCPConnection connection = null;
+					String json = "";
 					try {
-						String json = "";
 						if(event.getMessage().getAttachments().isEmpty()) {
-							json = msg.split(" ", 4)[3];
+							json = msg.split(" ", 5)[4];
 						}
 						else {
 							Message.Attachment attachment = event.getMessage().getAttachments().get(0);
@@ -912,27 +901,33 @@ public class DHCPCord extends ListenerAdapter{
 							}
 							stream.close();
 						}
+						System.out.println(json);
 						if(!json.startsWith("{") || !json.endsWith("}")) {
 							throw new IllegalArgumentException("Provided input must be valid JSON");
 						}
-						JSONObject jsonObj = new JSONObject(json);
-						connection = new TCPConnection(getIPOfUser(guild.getMember(user)), Integer.parseInt(request[3]), guild, new Site(jsonObj, entityBuilder, serviceName));
+						System.out.println("Creating service...");
 					}
 					catch(ArrayIndexOutOfBoundsException | NumberFormatException e) {
 						e.printStackTrace();
-						channel.sendMessage("`Usage: dhcp.service create <name> <port> <json>").queue();
+						channel.sendMessage("`Usage: dhcp.service create <name> <port> <json>`").queue();
 						return;
 					}
 					catch(JSONException e) {
 						channel.sendMessage("Invalid JSON file: " + e.getMessage());
 						return;
 					}
-					conn.createService(connection);
+					conn.createService(conn.getIp(event.getMember()), Integer.parseInt(request[3]), guild, new JSONObject(json));
 					channel.sendMessage("Created service " + serviceName + " listening on " + getIPOfUser(guild.getMember(user)) + ":" + request[3]).queue();
 					return;
 				}
 				else if(intent.equals("delete")) {
-					conn.deleteService(user.getId(), 0, guild);
+					conn.deleteService(user.getId(), conn.getServicePort(user.getId(), serviceName, guild), guild);
+					if(guild.getSelfMember().hasPermission((Channel)channel, Permission.MESSAGE_ADD_REACTION)){
+						event.getMessage().addReaction("\uD83D\uDC4C").queue();
+					}
+					else{
+						channel.sendMessage("\uD83D\uDC4C").queue();
+					}
 				}
 			}
 			catch(Exception e) {

@@ -882,6 +882,10 @@ public class DHCPCord extends ListenerAdapter{
 					throw new IllegalArgumentException("No service provided!");
 				}
 				if(intent.equals("create")) {
+					if(((TextChannel)channel).isNSFW()){
+						channel.sendMessage("Cannot create services inside of an NSFW channel!").queue();
+						return;
+					}
 					String json = "";
 					try {
 						if(event.getMessage().getAttachments().isEmpty()) {

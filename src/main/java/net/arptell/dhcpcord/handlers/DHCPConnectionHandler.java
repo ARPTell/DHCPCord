@@ -44,7 +44,7 @@ public class DHCPConnectionHandler {
 				System.out.println(request);
 				output.println(request);
 				output.flush();
-				return checkForException(input.readLine());
+				return checkForException(input.readLine()).replace("%20", " ");
 			}
 			catch(IOException e) {
 				close();
@@ -99,7 +99,7 @@ public class DHCPConnectionHandler {
 			if(user.contains(".")){
 				user = getUser(guild, user);
 			}
-			makeRequest("SET SERVICE " + guild.getId() + " " + user + " " + (json.has("title") ? json.getString("title") : "Untitled-" + json.hashCode()) + " " + port + " " + json.toString().replace("\n", "").replace("\\n", ""));
+			makeRequest("SET SERVICE " + guild.getId() + " " + user + " " + (json.has("title") ? json.getString("title") : "Untitled-" + json.hashCode()) + " " + port + " " + json.toString().replace("\n", "").replace(" ", "%20"));
 		}
 		public void deleteService(String user, int port, Guild guild) throws Exception{
 			if(user.contains(".")) {

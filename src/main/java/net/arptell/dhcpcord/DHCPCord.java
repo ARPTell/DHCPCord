@@ -19,6 +19,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.Scanner;
 import java.util.concurrent.TimeUnit;
 
@@ -86,6 +87,9 @@ public class DHCPCord extends ListenerAdapter{
 			out += s + " ";
 		}
 		return out;
+	}
+	public String formatPW(int num, Member member){
+		return String.format("**%d:** %s#%s (%s)\n", num, member.getUser().getName(), member.getUser().getDiscriminator(), member.getUser().getId());
 	}
 	public String fixHex(String hex) {
 		if(hex.length() == 1) {
@@ -1030,6 +1034,40 @@ public class DHCPCord extends ListenerAdapter{
 				return;
 			}
 			channel.sendFile(ref).queue();
+			return;
+		}
+		if(cmd.equals("queue")){
+			if(!guild.getId().equals("110373943822540800")){
+				return;
+			}
+			String[] args = msg.split(" ");
+			channel.sendTyping().queue();
+			List<Member> bots = guild.getMembersWithRoles(guild.getRolesByName("Unverified", true));
+			bots.sort(new Comparator<Member>() {
+
+				@Override
+				public int compare(Member m1, Member m2) {
+					return (int)(m1.getJoinDate().toEpochSecond() - m2.getJoinDate().toEpochSecond());
+				}
+				
+			});
+			int start = 10;
+			String page = "1";
+			if(args.length > 1){
+				try{
+					page = args[1];
+					start = start * Integer.parseInt(page);
+				}
+				catch(Exception e){}
+			}
+			String out = "**Discord Bots Queue (Page " + page + "/" + ((bots.size() / 10) + 1) + ")**\n\n";
+			for(int i = start; i > start - 10; i--){
+				if(i > bots.size()){
+					continue;
+				}
+				out += formatPW(i, bots.get(i - 1));
+			}
+			channel.sendMessage(out).queue();
 			return;
 		}
 	}

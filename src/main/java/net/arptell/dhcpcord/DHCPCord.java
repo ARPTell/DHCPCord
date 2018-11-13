@@ -29,6 +29,7 @@ import javax.script.ScriptEngineManager;
 import org.json.*;
 
 import net.arptell.dhcpcord.exceptions.*;
+import net.arptell.dhcpcord.handlers.BulkAssignHandler;
 import net.arptell.dhcpcord.handlers.DHCPConnectionHandler;
 
 public class DHCPCord extends ListenerAdapter{
@@ -315,21 +316,7 @@ public class DHCPCord extends ListenerAdapter{
 		}
 		channel.sendMessage("Thank you for being a geek. Please wait while I assign IP address to all the users in the guild (this may take a while)\n" +
 							"Users to process: " + (members.size() - bots) + " (bots are not assigned IPs and are not reflected in the count. Skipping " + bots + " bots)").queue();
-		String users = "";
-		for(Member member : members) {
-			if(member.getUser().isBot()) {
-				continue;
-			}
-			users += member.getUser().getId() + ",";
-		}
-		users = users.substring(0, users.length() - 1);
-		try {
-			conn.makeRequest("ASSIGNBULK IP " + guild.getId() + " " + users);
-			channel.sendMessage("IP assignment complete! Users may now view their IP with `dhcp.status`").queue();
-		}
-		catch(Exception e) {
-			channel.sendMessage("Failed to assign IPs: " + e).queue();
-		}
+		new BulkAssignHandler(this, (TextChannel)channel).start();
 	}
 	@Override
 	public void onMessageReceived(MessageReceivedEvent event) {

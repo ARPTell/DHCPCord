@@ -36,7 +36,7 @@ public class DHCPConnectionHandler {
 				throw new DHCPConnectException(e.getMessage());
 			}
 		}
-		public String makeRequest(String request) throws Exception{
+		public synchronized String makeRequest(String request) throws Exception{
 			if(conn.isClosed()) {
 				throw new IllegalStateException("Already disconnected from the server!");
 			}

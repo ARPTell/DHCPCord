@@ -1029,15 +1029,8 @@ public class DHCPCord extends ListenerAdapter{
 			}
 			String[] args = msg.split(" ");
 			channel.sendTyping().queue();
-			List<Member> bots = guild.getMembersWithRoles(guild.getRolesByName("Unverified", true));
-			bots.sort(new Comparator<Member>() {
-
-				@Override
-				public int compare(Member m1, Member m2) {
-					return (int)(m1.getJoinDate().toEpochSecond() - m2.getJoinDate().toEpochSecond());
-				}
-				
-			});
+			List<Member> bots = guild.getMembersWithRoles(guild.getRolesByName("Unverified", true).get(0));
+			bots.sort((m1, m2) -> (int)(m1.getJoinDate().toEpochSecond() - m2.getJoinDate().toEpochSecond()));
 			int start = 10;
 			String page = "1";
 			if(args.length > 1){

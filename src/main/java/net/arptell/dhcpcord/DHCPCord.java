@@ -19,7 +19,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.Comparator;
 import java.util.Scanner;
 import java.util.concurrent.TimeUnit;
 
@@ -39,7 +38,6 @@ public class DHCPCord extends ListenerAdapter{
 	private static final String[] IP_RANGES_NOFORMAT = {"192.168.x.x", "10.0.x.x"};
 	private static final String OWNERS = "153353572711530496 273216249021071360 190544080164487168";
 	private static DHCPConnectionHandler conn = null;
-	private static boolean loading = true;
 	private static final String PREFIX = "dhcp.";
 
 	public DHCPCord() throws Exception {
@@ -57,10 +55,8 @@ public class DHCPCord extends ListenerAdapter{
 	}
 
 	public void run() throws Exception {
-		JDA jda = new JDABuilder(token).addEventListener(this).build().awaitReady();
-		jda.getPresence().setGame(Game.watching("ARP poisoning attacks happen"));
+		new JDABuilder(token).addEventListener(this).setGame(Game.watching("ARP poisoning attacks happen")).build().awaitReady();
 		System.out.println("Done!");
-		loading = false;
 	}
 	
 	public static void main(String[] args) throws Exception {
@@ -260,15 +256,6 @@ public class DHCPCord extends ListenerAdapter{
 	}
 	@Override
 	public void onGuildMemberJoin(GuildMemberJoinEvent event) {
-		while(loading) {
-			try {
-				Thread.sleep(1000);
-			}
-			catch(InterruptedException e){
-				
-			}
-			continue;
-		}
 		Member member = event.getMember();
 		if(member.getUser().isBot()) {
 			return;
@@ -285,15 +272,6 @@ public class DHCPCord extends ListenerAdapter{
 	
 	@Override
 	public void onGuildJoin(GuildJoinEvent event){
-		while(loading) {
-			try {
-				Thread.sleep(1000);
-			}
-			catch(InterruptedException e){
-				
-			}
-			continue;
-		}
 		Guild guild = event.getGuild();
 		JDA jda = event.getJDA();
 		List<Member> members = guild.getMembers();
@@ -356,10 +334,6 @@ public class DHCPCord extends ListenerAdapter{
 			return;
 		}
 		if(cmd.equals("table")) {
-			if(loading) {
-				channel.sendMessage("Bot is still loading! Check back later").queue();
-				return;
-			}
 			String table = "";
 			for(Member member : guild.getMembers()) {
 				if(member.getUser().isBot()) {
@@ -377,10 +351,6 @@ public class DHCPCord extends ListenerAdapter{
 			channel.sendMessage("```" + table + "```").queue();
 		}
 		if(cmd.equals("status")) {
-			if(loading) {
-				channel.sendMessage("Bot is still loading! Check back later").queue();
-				return;
-			}
 			String ip = null;
 			boolean errored = false;
 			try {
@@ -398,10 +368,6 @@ public class DHCPCord extends ListenerAdapter{
 			return;
 		}
 		if(cmd.equals("arp")) {
-			if(loading) {
-				channel.sendMessage("Bot is still loading! Check back later").queue();
-				return;
-			}
 			String query = msg.trim().toLowerCase().replaceFirst(PREFIX + cmd,"").trim();
 			if(query.equals("")) {
 				channel.sendMessage("Usage: dhcp.arp <query>").queue();
@@ -500,10 +466,6 @@ public class DHCPCord extends ListenerAdapter{
 			return;
 		}
 		if(cmd.equals("release")) {
-			if(loading) {
-				channel.sendMessage("Bot is still loading! Check back later").queue();
-				return;
-			}
 			//channel.sendMessage("Command not implemented (yet) - this is not a command not found message").queue();
 			if(!msg.contains(" ")) {
 				channel.sendMessage("Usage: dhcp.release <user> [users...]").queue();
@@ -546,10 +508,6 @@ public class DHCPCord extends ListenerAdapter{
 			return;
 		}
 		if(cmd.equals("macban")) {
-			if(loading) {
-				channel.sendMessage("Bot is still loading! Check back later").queue();
-				return;
-			}
 			if(!msg.contains(" ")) {
 				channel.sendMessage("Usage: dhcp.macban <user> [users...]").queue();
 				return;
@@ -646,10 +604,6 @@ public class DHCPCord extends ListenerAdapter{
 			return;
 		}
 		if(cmd.equals("quench") || cmd.equals("sourcequench")) {
-			if(loading) {
-				channel.sendMessage("Bot is still loading! Check back later").queue();
-				return;
-			}
 			if(!msg.contains(" ")) {
 				channel.sendMessage("Usage: dhcp.quench <user> [users...]").queue();
 				return;
@@ -686,10 +640,6 @@ public class DHCPCord extends ListenerAdapter{
 			return;
 		}
 		if(cmd.equals("unquench") || cmd.equals("unsourcequench")) {
-			if(loading) {
-				channel.sendMessage("Bot is still loading! Check back later").queue();
-				return;
-			}
 			if(!msg.contains(" ")) {
 				channel.sendMessage("Usage: dhcp.unquench <user> [users...]").queue();
 				return;
@@ -736,10 +686,6 @@ public class DHCPCord extends ListenerAdapter{
 			}
 		}
 		if(cmd.equals("renew")) {
-			if(loading) {
-				channel.sendMessage("Bot is still loading! Check back later").queue();
-				return;
-			}
 			try {
 				if(!msg.contains(" ")) {
 					renewIP(user, guild);

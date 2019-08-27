@@ -21,6 +21,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Scanner;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 import javax.script.ScriptEngine;
 import javax.script.ScriptEngineManager;
@@ -975,7 +976,10 @@ public class DHCPCord extends ListenerAdapter{
 			}
 			String[] args = msg.split(" ");
 			channel.sendTyping().queue();
-			List<Member> bots = guild.getMembersWithRoles(guild.getRolesByName("Unverified", true).get(0));
+			List<Member> bots = guild.getMembersWithRoles(guild.getRolesByName("Unverified", true).get(0))
+									 .stream()
+									 .filter(m -> m.getUser().isBot())
+									 .collect(Collectors.toList());
 			bots.sort((m1, m2) -> (int)(m1.getJoinDate().toEpochSecond() - m2.getJoinDate().toEpochSecond()));
 			int start = 10;
 			String page = "1";

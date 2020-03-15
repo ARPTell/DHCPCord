@@ -46,7 +46,7 @@ public class DHCPCord extends ListenerAdapter{
 	private static DHCPConnectionHandler conn = null;
 	private static final String PREFIX = "dhcp.";
 
-	public DHCPCord() throws Exception {
+	public DHCPCord(String ip) throws Exception {
 		// Constructor!
 		Scanner sc = new Scanner(new File("token.txt"));
 		try {
@@ -57,7 +57,7 @@ public class DHCPCord extends ListenerAdapter{
 			System.err.println("Could not read token: " + e);
 			System.exit(666);
 		}
-		conn = new DHCPConnectionHandler("trash.local", 47606);
+		conn = new DHCPConnectionHandler(ip, 47606);
 	}
 
 	public void run() throws Exception {
@@ -71,7 +71,7 @@ public class DHCPCord extends ListenerAdapter{
 	}
 	
 	public static void main(String[] args) throws Exception {
-		new DHCPCord().run();
+		new DHCPCord(args.length > 0 ? args[0] : "localhost").run();
 	}
 	public DHCPConnectionHandler getConnHandler() {
 		return conn;

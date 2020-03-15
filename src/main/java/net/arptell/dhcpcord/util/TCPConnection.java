@@ -1,7 +1,7 @@
 package net.arptell.dhcpcord.util;
 
 import net.arptell.dhcpcord.entities.Service;
-import net.dv8tion.jda.core.entities.Guild;
+import net.dv8tion.jda.api.entities.Guild;
 
 public class TCPConnection {
 	

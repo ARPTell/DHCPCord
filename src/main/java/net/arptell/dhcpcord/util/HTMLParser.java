@@ -1,6 +1,6 @@
 package net.arptell.dhcpcord.util;
 
-import net.dv8tion.jda.core.EmbedBuilder;
+import net.dv8tion.jda.api.EmbedBuilder;
 
 public class HTMLParser {
 	

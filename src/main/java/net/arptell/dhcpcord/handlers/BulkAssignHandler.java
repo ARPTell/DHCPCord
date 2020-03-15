@@ -1,9 +1,9 @@
 package net.arptell.dhcpcord.handlers;
 
 import net.arptell.dhcpcord.DHCPCord;
-import net.dv8tion.jda.core.entities.Guild;
-import net.dv8tion.jda.core.entities.Member;
-import net.dv8tion.jda.core.entities.TextChannel;
+import net.dv8tion.jda.api.entities.Guild;
+import net.dv8tion.jda.api.entities.Member;
+import net.dv8tion.jda.api.entities.TextChannel;
 
 public class BulkAssignHandler extends Thread {
 

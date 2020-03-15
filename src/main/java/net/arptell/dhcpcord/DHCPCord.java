@@ -1,16 +1,20 @@
 package net.arptell.dhcpcord;
 
-import net.dv8tion.jda.core.EmbedBuilder;
-import net.dv8tion.jda.core.JDA;
-import net.dv8tion.jda.core.JDABuilder;
-import net.dv8tion.jda.core.Permission;
-import net.dv8tion.jda.core.entities.*;
-import net.dv8tion.jda.core.events.message.MessageReceivedEvent;
-import net.dv8tion.jda.core.hooks.ListenerAdapter;
-import net.dv8tion.jda.core.events.guild.GuildJoinEvent;
-import net.dv8tion.jda.core.events.guild.GuildLeaveEvent;
-import net.dv8tion.jda.core.events.guild.member.GuildMemberJoinEvent;
-import net.dv8tion.jda.core.events.guild.member.GuildMemberLeaveEvent;
+import net.dv8tion.jda.api.EmbedBuilder;
+import net.dv8tion.jda.api.JDA;
+import net.dv8tion.jda.api.JDABuilder;
+import net.dv8tion.jda.api.Permission;
+import net.dv8tion.jda.api.entities.*;
+import net.dv8tion.jda.api.events.message.guild.GuildMessageReceivedEvent;
+import net.dv8tion.jda.api.hooks.ListenerAdapter;
+import net.dv8tion.jda.api.requests.GatewayIntent;
+import net.dv8tion.jda.api.utils.MemberCachePolicy;
+import net.dv8tion.jda.api.utils.data.DataObject;
+import net.dv8tion.jda.internal.entities.EntityBuilder;
+import net.dv8tion.jda.api.events.guild.GuildJoinEvent;
+import net.dv8tion.jda.api.events.guild.GuildLeaveEvent;
+import net.dv8tion.jda.api.events.guild.member.GuildMemberJoinEvent;
+import net.dv8tion.jda.api.events.guild.member.GuildMemberRemoveEvent;
 
 import java.io.File;
 import java.io.FileWriter;
@@ -19,6 +23,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.EnumSet;
 import java.util.Scanner;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
@@ -52,11 +57,16 @@ public class DHCPCord extends ListenerAdapter{
 			System.err.println("Could not read token: " + e);
 			System.exit(666);
 		}
-		conn = new DHCPConnectionHandler("localhost", 47606);
+		conn = new DHCPConnectionHandler("trash.local", 47606);
 	}
 
 	public void run() throws Exception {
-		new JDABuilder(token).addEventListener(this).setGame(Game.watching("ARP poisoning attacks happen")).build().awaitReady();
+		JDABuilder.createDefault(token)
+				  .addEventListeners(this)
+				  .setActivity(Activity.watching("ARP poisoning attacks happen"))
+				  .setEnabledIntents(EnumSet.complementOf(EnumSet.of(GatewayIntent.GUILD_PRESENCES)))
+				  .setMemberCachePolicy(MemberCachePolicy.ALL)
+				  .build().awaitReady();
 		System.out.println("Done!");
 	}
 	
@@ -160,7 +170,7 @@ public class DHCPCord extends ListenerAdapter{
 		}
 		return muteRole;
 	}
-	private boolean eval(String toEval, MessageReceivedEvent event) {
+	private boolean eval(String toEval, GuildMessageReceivedEvent event) {
 		if(toEval.equalsIgnoreCase("dhcp.eval")) {
 			event.getChannel().sendMessage("```Usage: dhcp.eval <code>```").queue();
 			return true;
@@ -249,7 +259,7 @@ public class DHCPCord extends ListenerAdapter{
 		catch(Exception e) {}
 	}
 	@Override
-	public void onGuildMemberLeave(GuildMemberLeaveEvent event) {
+	public void onGuildMemberRemove(GuildMemberRemoveEvent event) {
 		try {
 			conn.releaseIp(event.getGuild(), event.getUser());
 		}
@@ -285,7 +295,7 @@ public class DHCPCord extends ListenerAdapter{
 		}
 		MessageChannel channel = null;
 		for(MessageChannel ch : guild.getTextChannels()) {
-			if(guild.getSelfMember().hasPermission((Channel)ch, Permission.MESSAGE_WRITE)) {
+			if(guild.getSelfMember().hasPermission((GuildChannel)ch, Permission.MESSAGE_WRITE)) {
 				channel = ch;
 				break;
 			}
@@ -298,8 +308,8 @@ public class DHCPCord extends ListenerAdapter{
 		new BulkAssignHandler(this, (TextChannel)channel).start();
 	}
 	@Override
-	public void onMessageReceived(MessageReceivedEvent event) {
-		if(event.getAuthor().isBot() || event.getAuthor().getDiscriminator().equals("259601353419128833")) {
+	public void onGuildMessageReceived(GuildMessageReceivedEvent event) {
+		if(event.getAuthor().isBot() || event.getAuthor().getId().equals("259601353419128833")) {
 			return;
 		}
 		String msg = event.getMessage().getContentRaw().trim();
@@ -307,10 +317,6 @@ public class DHCPCord extends ListenerAdapter{
 		Guild guild = event.getGuild();
 		MessageChannel channel = event.getChannel();
 		User user = event.getAuthor();
-		if(channel.getType().equals(ChannelType.PRIVATE)) {
-			channel.sendMessage("no u").queue();
-			return;
-		}
 		String ipRange = IP_RANGES_NOFORMAT[(int)(guild.getIdLong() % 2L)];
 		if(!cmd.startsWith(PREFIX)) {
 			return;
@@ -355,9 +361,10 @@ public class DHCPCord extends ListenerAdapter{
 			String ip = null;
 			boolean errored = false;
 			try {
-				ip = getIPOfUser(guild.getMember(user));
+				ip = getIPOfUser(event.getMember());
 			}
 			catch(Exception e) {
+				e.printStackTrace();
 				ip = e.toString();
 				errored = true;
 			}
@@ -394,6 +401,7 @@ public class DHCPCord extends ListenerAdapter{
 							if(querySplit[3].equals("tell")) {
 								try {
 									toTell = querySplit[4];
+									//System.out.printf("%s -> %s\n", toTell, getUserByIP(toTell, guild));
 									toTellUser = getUserByIP(toTell, guild).getAsMention();
 								}
 								catch(NullPointerException e) {
@@ -493,7 +501,7 @@ public class DHCPCord extends ListenerAdapter{
 						kickedUser.openPrivateChannel().queue((ch) -> ch.sendMessage("You were kicked from " + guild.getName() + ": " + reason).queue());
 					}
 					catch(Exception e) {}
-					guild.getController().kick(guild.getMember(kickedUser), reason).queue();
+					guild.kick(guild.getMember(kickedUser), reason).queue();
 					output += "Kicked " + kickedUser.getName() + "#" + kickedUser.getDiscriminator() + "\n";
 				}
 				catch(Exception e) {
@@ -583,7 +591,7 @@ public class DHCPCord extends ListenerAdapter{
 						bannedUser.openPrivateChannel().queue((ch) -> ch.sendMessage("You were banned from " + guild.getName() + ": " + banReasonToPMBCJDAIsWeird).queue());
 					}
 					catch(Exception e) {}
-					guild.getController().ban(bannedUser, 7, "[Banned by " + user.getName() + "#" + user.getDiscriminator() + "]: " + reason).queue();
+					guild.ban(bannedUser, 7, "[Banned by " + user.getName() + "#" + user.getDiscriminator() + "]: " + reason).queue();
 					output += "Banned **" + bannedUser.getName() + "#" + bannedUser.getDiscriminator() + "**\n";
 				}
 				catch(Exception e) {
@@ -629,7 +637,7 @@ public class DHCPCord extends ListenerAdapter{
 						}
 					}
 					catch(Exception e) {}
-					guild.getController().addSingleRoleToMember(guild.getMember(mutedUser), getMutedRole(guild)).queue();
+					guild.addRoleToMember(guild.getMember(mutedUser), getMutedRole(guild)).queue();
 					output += "Muted **" + mutedUser.getName() + "#" + mutedUser.getDiscriminator() + "**\n";
 				}
 				catch(Exception e) {
@@ -665,7 +673,7 @@ public class DHCPCord extends ListenerAdapter{
 						}
 					}
 					catch(Exception e) {}
-					guild.getController().removeSingleRoleFromMember(guild.getMember(mutedUser), getMutedRole(guild)).queue();
+					guild.removeRoleFromMember(guild.getMember(mutedUser), getMutedRole(guild)).queue();
 					output += "Unmuted **" + mutedUser.getName() + "#" + mutedUser.getDiscriminator() + "**\n";
 				}
 				catch(Exception e) {
@@ -729,8 +737,7 @@ public class DHCPCord extends ListenerAdapter{
 				channel.sendMessage("Usage: dhcp.getmac [user]").queue();
 				return;
 			}
-			String id = msg.split(" ")[1];
-			id = id.replace("<@", "").replace("!",  "").replace(">","");
+			String id = msg.split(" ")[1].replaceAll("<@!?(\\d+)>", "$1");
 			try {
 				User userGiven = null;
 				try {
@@ -786,7 +793,7 @@ public class DHCPCord extends ListenerAdapter{
 					//The entity builder throws an exception if this key is missing 
 					jsonObj.put("type", "");
 				}
-				MessageEmbed site = new EntityBuilder(event.getJDA()).createMessageEmbed(jsonObj);
+				MessageEmbed site = new EntityBuilder(event.getJDA()).createMessageEmbed(DataObject.fromJson(jsonObj.toString()));
 				EmbedBuilder eb = new EmbedBuilder(site);
 				eb.setFooter("Requested by " + getIPOfUser(guild.getMember(user)) + " (" + generateMAC(user.getId()) + ")", user.getAvatarUrl());
 				channel.sendMessage(eb.build()).queue();
@@ -837,7 +844,7 @@ public class DHCPCord extends ListenerAdapter{
 							if(attachment.isImage()) {
 								throw new IllegalArgumentException("Provided file must be a valid JSON file, not an image");
 							}
-							InputStream stream = attachment.getInputStream();
+							InputStream stream = attachment.retrieveInputStream().get();
 							while(stream.available() > 0) {
 								json += (char)stream.read();
 							}
@@ -864,7 +871,7 @@ public class DHCPCord extends ListenerAdapter{
 				}
 				else if(intent.equals("delete")) {
 					conn.deleteService(user.getId(), conn.getServicePort(user.getId(), serviceName, guild), guild);
-					if(guild.getSelfMember().hasPermission((Channel)channel, Permission.MESSAGE_ADD_REACTION)){
+					if(guild.getSelfMember().hasPermission((GuildChannel)channel, Permission.MESSAGE_ADD_REACTION)){
 						event.getMessage().addReaction("\uD83D\uDC4C").queue();
 					}
 					else{
@@ -974,30 +981,41 @@ public class DHCPCord extends ListenerAdapter{
 			if(!guild.getId().equals("110373943822540800")){
 				return;
 			}
-			String[] args = msg.split(" ");
-			channel.sendTyping().queue();
-			List<Member> bots = guild.getMembersWithRoles(guild.getRolesByName("Unverified", true).get(0))
-									 .stream()
-									 .filter(m -> m.getUser().isBot())
-									 .collect(Collectors.toList());
-			bots.sort((m1, m2) -> (int)(m1.getJoinDate().toEpochSecond() - m2.getJoinDate().toEpochSecond()));
-			int start = 10;
-			String page = "1";
-			if(args.length > 1){
-				try{
-					page = args[1];
-					start = start * Integer.parseInt(page);
+			guild.retrieveMembers().thenAccept($ -> {
+				String[] args = msg.split(" ");
+				channel.sendTyping().queue();
+				List<Role> possibleRoles = guild.getRolesByName("Unverified", true);
+				List<Member> bots = guild.getMembers()
+										 .stream()
+										 .filter(m -> m.getUser().isBot())
+										 .filter(m ->  {
+											 for(Role role : possibleRoles) {
+												 if(m.getRoles().contains(role)) {
+													 return true;
+												 }
+											 }
+											 return false;
+										 })
+										 .collect(Collectors.toList());
+				bots.sort((m1, m2) -> (int)(m1.getTimeJoined().toEpochSecond() - m2.getTimeJoined().toEpochSecond()));
+				int start = 10;
+				String page = "1";
+				if(args.length > 1){
+					try{
+						page = args[1];
+						start = start * Integer.parseInt(page);
+					}
+					catch(Exception e){}
 				}
-				catch(Exception e){}
-			}
-			String out = "**Discord Bots Queue (Page " + page + "/" + ((bots.size() / 10) + 1) + ")**\n\n";
-			for(int i = start; i > start - 10; i--){
-				if(i > bots.size()){
-					continue;
+				String out = "**Discord Bots Queue (Page " + page + "/" + ((bots.size() / 10) + 1) + ")**\n\n";
+				for(int i = start; i > start - 10; i--){
+					if(i > bots.size()){
+						continue;
+					}
+					out += formatPW(i, bots.get(i - 1));
 				}
-				out += formatPW(i, bots.get(i - 1));
-			}
-			channel.sendMessage(out).queue();
+				channel.sendMessage(out).queue();
+			});
 			return;
 		}
 	}

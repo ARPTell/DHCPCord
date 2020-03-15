@@ -11,7 +11,7 @@ import java.net.*;
 
 import org.json.JSONObject;
 
-import net.dv8tion.jda.core.entities.*;
+import net.dv8tion.jda.api.entities.*;
 
 public class DHCPConnectionHandler {
 		
@@ -37,11 +37,11 @@ public class DHCPConnectionHandler {
 			}
 		}
 		public synchronized String makeRequest(String request) throws Exception{
+			System.out.println(request);
 			if(conn.isClosed()) {
 				throw new IllegalStateException("Already disconnected from the server!");
 			}
 			try {
-				System.out.println(request);
 				output.println(request);
 				output.flush();
 				return checkForException(input.readLine()).replace("%20", " ");
